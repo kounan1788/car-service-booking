@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { format, addDays, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, getDay, isWeekend, getDate } from "date-fns";
+import { format, addDays, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, getDay, getDate } from "date-fns";
 import { ja } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { SERVICE_CONFIG, type ServiceType } from '@/app/config/services';
 
 interface Reservation {
   fullName: string;
@@ -22,44 +23,16 @@ interface Reservation {
   selectedTime: string;
 }
 
-interface Event {
+interface ParsedReservation extends Omit<Reservation, 'selectedDate'> {
+  selectedDate: string | null;
+}
+
+interface ParsedEvent {
   start: string;
   end: string;
   title?: string;
+  duration?: string;
 }
-
-const SERVICE_CONFIG = {
-  '車検': {
-    maxPerDay: 2,
-    duration: 0,
-    requiresTimeSlot: false
-  },
-  'オイル交換': {
-    maxPerDay: null,
-    duration: 30,
-    requiresTimeSlot: true
-  },
-  '12ヵ月点検': {
-    maxPerDay: 2,
-    duration: 90,
-    requiresTimeSlot: true
-  },
-  '6ヵ月点検(貨物車)': {
-    maxPerDay: 2,
-    duration: 90,
-    requiresTimeSlot: true
-  },
-  'スケジュール点検': {
-    maxPerDay: null,
-    duration: 60,
-    requiresTimeSlot: true
-  },
-  'タイヤ交換': {
-    maxPerDay: null,
-    duration: 30,
-    requiresTimeSlot: true
-  }
-} as const;
 
 const addToGoogleCalendar = (reservation: Reservation) => {
   if (!reservation.selectedDate) return '';
@@ -69,8 +42,8 @@ const addToGoogleCalendar = (reservation: Reservation) => {
   const startTime = `${date}T${hour.padStart(2, '0')}${minute}00`;
   
   // サービスごとの作業時間を取得
-  const serviceConfig = SERVICE_CONFIG[reservation.service as keyof typeof SERVICE_CONFIG];
-  const duration = serviceConfig?.duration || 60; // デフォルトは60分
+  const config = SERVICE_CONFIG[reservation.service as ServiceType];
+  const duration = config?.duration || 60; // デフォルトは60分
   
   // 終了時刻を計算
   const endDate = new Date(reservation.selectedDate);
@@ -161,22 +134,33 @@ const isClosedDay = (date: Date) => {
   return false;
 };
 
-const generateCalendarGrid = (date: Date) => {
+const generateCalendarGrid = (date: Date): (Date | null)[] => {
   const start = startOfMonth(date);
   const end = endOfMonth(date);
-  const days = eachDayOfInterval({ start, end });
-  
-  // 月の最初の日の曜日を取得（0: 日曜日, 1: 月曜日, ...)
+  const daysInMonth = eachDayOfInterval({ start, end });
   const startDay = getDay(start);
-  
-  // 前月の日数を追加
-  const prevMonthDays = Array(startDay).fill(null);
-  
-  // 翌月の日数を追加（7の倍数になるように）
-  const totalDays = prevMonthDays.length + days.length;
-  const nextMonthDays = Array(Math.ceil(totalDays / 7) * 7 - totalDays).fill(null);
-  
-  return [...prevMonthDays, ...days, ...nextMonthDays];
+  const totalDays = startDay + daysInMonth.length;
+  const totalCells = Math.ceil(totalDays / 7) * 7;
+
+  return [
+    ...Array(startDay).fill(null),
+    ...daysInMonth,
+    ...Array(totalCells - totalDays).fill(null)
+  ];
+};
+
+interface ApiError {
+  message: string;
+}
+
+const handleError = (error: unknown) => {
+  if (error instanceof Error) {
+    console.error('Error:', error.message);
+    alert(error.message);
+  } else {
+    console.error('Unknown error:', error);
+    alert('予約の登録中にエラーが発生しました');
+  }
 };
 
 export default function BookingFlow() {
@@ -200,11 +184,8 @@ export default function BookingFlow() {
   });
 
   const [confirmedReservations, setConfirmedReservations] = useState<Reservation[]>([]);
-  const [existingEvents, setExistingEvents] = useState<Event[]>([]);
+  const [existingEvents, setExistingEvents] = useState<ParsedEvent[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
-
-  const unavailableDates = [addDays(today, 2), addDays(today, 5)];
-  const days = Array.from({ length: 90 }, (_, i) => addDays(today, i));
 
   const generateTimeSlots = (day: Date) => {
     const slots: string[] = [];
@@ -215,19 +196,10 @@ export default function BookingFlow() {
     for (let time = start; time <= end; time += 0.5) {
       const hour = Math.floor(time);
       const minute = time % 1 === 0 ? "00" : "30";
-      
-      // 12:00と12:30をスキップ
       if (hour === 12) continue;
-      
       slots.push(`${hour}:${minute}`);
     }
     return slots;
-  };
-
-  const getDaysInMonth = (date: Date) => {
-    const start = startOfMonth(date);
-    const end = endOfMonth(date);
-    return eachDayOfInterval({ start, end });
   };
 
   const nextMonth = () => {
@@ -244,7 +216,6 @@ export default function BookingFlow() {
 
   const handleConfirmReservation = async () => {
     try {
-      // カレンダーAPIを呼び出し
       const response = await fetch('/api/calendar', {
         method: 'POST',
         headers: {
@@ -254,53 +225,50 @@ export default function BookingFlow() {
       });
 
       if (!response.ok) {
-        throw new Error('カレンダーの更新に失敗しました');
+        const error: ApiError = await response.json();
+        throw new Error(error.message || '予約の追加に失敗しました');
       }
 
-      // ローカルストレージに保存
-      const newReservations = [...confirmedReservations, formData];
-      setConfirmedReservations(newReservations);
-      localStorage.setItem('reservations', JSON.stringify(newReservations));
-      
+      setConfirmedReservations(prev => [...prev, formData]);
       setStep(6);
     } catch (error) {
-      console.error('Error:', error);
-      alert('予約の登録中にエラーが発生しました。');
+      handleError(error);
     }
   };
 
   useEffect(() => {
     const savedReservations = localStorage.getItem('reservations');
     if (savedReservations) {
-      const parsed = JSON.parse(savedReservations);
-      const reservations = parsed.map((res: any) => ({
-        ...res,
-        selectedDate: res.selectedDate ? new Date(res.selectedDate) : null
-      }));
-      setConfirmedReservations(reservations);
+      try {
+        const parsed = JSON.parse(savedReservations) as ParsedReservation[];
+        const reservations = parsed.map(res => ({
+          ...res,
+          selectedDate: res.selectedDate ? new Date(res.selectedDate) : null
+        }));
+        setConfirmedReservations(reservations);
+      } catch (error) {
+        console.error('Failed to parse saved reservations:', error);
+      }
     }
   }, []);
 
   useEffect(() => {
-    // 初回実行
     const fetchEvents = async () => {
       try {
         const response = await fetch('/api/calendar/availability');
         if (response.ok) {
-          const events = await response.json();
+          const events: ParsedEvent[] = await response.json();
           setExistingEvents(events);
         }
       } catch (error) {
-        console.error('Error fetching events:', error);
+        if (error instanceof Error) {
+          console.error('Error fetching events:', error.message);
+        }
       }
     };
 
     fetchEvents();
-
-    // 10秒ごとに実行
     const interval = setInterval(fetchEvents, 10000);
-
-    // クリーンアップ関数
     return () => clearInterval(interval);
   }, []);
 
@@ -314,23 +282,23 @@ export default function BookingFlow() {
       return inspectionsForDay.length < 2;
     }
 
-    const serviceConfig = SERVICE_CONFIG[formData.service as keyof typeof SERVICE_CONFIG];
-    if (!serviceConfig?.requiresTimeSlot) return true;
+    const config = SERVICE_CONFIG[formData.service as ServiceType];
+    if (!config?.requiresTimeSlot) return true;
 
     const [hour, minute] = timeSlot.split(':');
     const slotStart = new Date(date);
     slotStart.setHours(parseInt(hour), parseInt(minute), 0, 0);
     
     const slotEnd = new Date(slotStart);
-    slotEnd.setMinutes(slotStart.getMinutes() + serviceConfig.duration);
+    slotEnd.setMinutes(slotStart.getMinutes() + config.duration);
 
     // その日のサービス予約数をチェック
-    if (serviceConfig.maxPerDay) {
+    if (config.maxPerDay) {
       const servicesForDay = existingEvents.filter(event => {
         const eventDate = new Date(event.start);
         return isSameDay(eventDate, date) && event.title?.includes(formData.service);
       });
-      if (servicesForDay.length >= serviceConfig.maxPerDay) return false;
+      if (servicesForDay.length >= config.maxPerDay) return false;
     }
 
     // 時間枠の重複チェック
@@ -635,22 +603,20 @@ export default function BookingFlow() {
                     if (!day) return <div key={`empty-${index}`} className="p-2" />;
                     
                     const isPast = day < today;
-                    const isUnavailable = unavailableDates.some((d) => isSameDay(d, day));
-                    const isFuture = day > addDays(today, 90);
+                    const isUnavailable = day > addDays(today, 90);
                     const isClosed = isClosedDay(day);
-                    const isWeekend = getDay(day) === 0 || getDay(day) === 6;
                     
                     return (
                       <button
                         key={format(day, "yyyy-MM-dd")}
                         className={`p-2 border rounded ${
-                          isPast || isUnavailable || isFuture || isClosed
+                          isPast || isUnavailable || isClosed
                             ? "bg-gray-300 cursor-not-allowed"
                             : formData.selectedDate && isSameDay(formData.selectedDate, day)
                             ? "bg-blue-500 text-white"
                             : "bg-blue-100 hover:bg-blue-300"
-                        } ${isWeekend ? (getDay(day) === 0 ? 'text-red-500' : 'text-blue-500') : ''}`}
-                        disabled={isPast || isUnavailable || isFuture || isClosed}
+                        }`}
+                        disabled={isPast || isUnavailable || isClosed}
                         onClick={() => setFormData({ ...formData, selectedDate: day })}
                       >
                         {format(day, "d", { locale: ja })}

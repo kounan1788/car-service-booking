@@ -1,27 +1,14 @@
 import { google } from 'googleapis';
 import { NextResponse } from 'next/server';
 import { addDays } from 'date-fns';
+import { SERVICE_CONFIG, type ServiceType } from '@/app/config/services';
 
-const SERVICE_CONFIG = {
-  '車検': {
-    duration: 0, // 1日
-  },
-  'オイル交換': {
-    duration: 30,
-  },
-  '12ヵ月点検': {
-    duration: 90,
-  },
-  '6ヵ月点検(貨物車)': {
-    duration: 90,
-  },
-  'スケジュール点検': {
-    duration: 60,
-  },
-  'タイヤ交換': {
-    duration: 30,
-  }
-} as const;
+interface CalendarEvent {
+  start: string;
+  end: string;
+  title?: string;
+  duration?: string;
+}
 
 const calendar = google.calendar({
   version: 'v3',
@@ -46,12 +33,17 @@ export async function GET() {
       orderBy: 'startTime',
     });
 
-    const events = response.data.items?.map(event => ({
-      start: event.start?.dateTime,
-      end: event.end?.dateTime,
-      title: event.summary,
-      duration: event.description?.match(/作業時間: (\d+)分/)?.[1] // 作業時間を抽出
-    })) || [];
+    const events: CalendarEvent[] = response.data.items?.map(event => {
+      const serviceType = event.summary?.split(' - ')[0] as ServiceType;
+      const duration = SERVICE_CONFIG[serviceType]?.duration || 60;
+      
+      return {
+        start: event.start?.dateTime ?? '',
+        end: event.end?.dateTime ?? '',
+        title: event.summary ?? undefined,
+        duration: duration.toString()
+      };
+    }) || [];
 
     return NextResponse.json(events);
   } catch (error) {
