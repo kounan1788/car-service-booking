@@ -1,6 +1,6 @@
 import { google } from 'googleapis';
 import { NextResponse } from 'next/server';
-import { addMinutes } from 'date-fns';
+import { ServiceType } from '@/app/config/services';
 
 const SERVICE_CONFIG = {
   '車検': {
@@ -23,57 +23,53 @@ const SERVICE_CONFIG = {
   }
 } as const;
 
-const calendar = google.calendar({
-  version: 'v3',
-  auth: new google.auth.JWT(
-    process.env.GOOGLE_CLIENT_EMAIL,
-    undefined,
-    process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-    ['https://www.googleapis.com/auth/calendar']
-  )
-});
-
 export async function POST(request: Request) {
   try {
-    const reservation = await request.json();
-    
-    if (!reservation.selectedDate) {
-      return NextResponse.json({ error: '日付が選択されていません' }, { status: 400 });
-    }
+    const data = await request.json();
+    const calendar = google.calendar({
+      version: 'v3',
+      auth: new google.auth.JWT(
+        process.env.GOOGLE_CLIENT_EMAIL,
+        undefined,
+        process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+        ['https://www.googleapis.com/auth/calendar']
+      )
+    });
 
-    const [hour, minute] = reservation.selectedTime.split(':');
-    const startDate = new Date(reservation.selectedDate);
-    startDate.setHours(parseInt(hour), parseInt(minute), 0);
+    // 予約時間の設定
+    const [hour, minute] = data.selectedTime.split(':');
+    const startTime = new Date(data.selectedDate);
+    startTime.setHours(parseInt(hour), parseInt(minute), 0);
+
+    // 車検の場合は1時間、それ以外はSERVICE_CONFIGから取得
+    const duration = data.service === '車検' ? 60 : SERVICE_CONFIG[data.service as ServiceType]?.duration || 60;
     
-    // サービスごとの作業時間を取得
-    const serviceConfig = SERVICE_CONFIG[reservation.service as keyof typeof SERVICE_CONFIG];
-    const duration = serviceConfig?.duration || 60;
-    
-    // 終了時刻を計算
-    const endDate = addMinutes(startDate, duration);
+    const endTime = new Date(startTime);
+    endTime.setMinutes(endTime.getMinutes() + duration);
 
     const event = {
-      summary: `${reservation.service} - ${reservation.companyName || reservation.fullName}`,
+      summary: `${data.service} - ${data.companyName || data.fullName}`,
       description: `
         【お客様情報】
-        ${reservation.companyName ? `会社名: ${reservation.companyName}` : `お名前: ${reservation.fullName}`}
-        ${reservation.phone ? `電話番号: ${reservation.phone}` : ''}
-        ${reservation.address ? `住所: ${reservation.address}` : ''}
-        ${reservation.carModel ? `車種: ${reservation.carModel}` : ''}
-        ${reservation.yearNumber ? `年式: ${reservation.yearEra}${reservation.yearNumber}年` : ''}
-        ${reservation.registrationNumber ? `登録番号: ${reservation.registrationNumber}` : ''}
+        ${data.companyName ? `会社名: ${data.companyName}` : `お名前: ${data.fullName}`}
+        ${data.phone ? `電話番号: ${data.phone}` : ''}
+        ${data.address ? `住所: ${data.address}` : ''}
+        ${data.carModel ? `車種: ${data.carModel}` : ''}
+        ${data.yearNumber ? `年式: ${data.yearEra}${data.yearNumber}年` : ''}
+        ${data.registrationNumber ? `登録番号: ${data.registrationNumber}` : ''}
         
         【予約内容】
-        サービス: ${reservation.service}
+        サービス: ${data.service}
         作業時間: ${duration}分
-        ${reservation.notes ? `備考: ${reservation.notes}` : ''}
+        ${data.notes ? `備考: ${data.notes}` : ''}
+        ${data.concerns ? `気になる点: ${data.concerns}` : ''}
       `.trim(),
       start: {
-        dateTime: startDate.toISOString(),
+        dateTime: startTime.toISOString(),
         timeZone: 'Asia/Tokyo',
       },
       end: {
-        dateTime: endDate.toISOString(),
+        dateTime: endTime.toISOString(),
         timeZone: 'Asia/Tokyo',
       },
     };
@@ -83,9 +79,9 @@ export async function POST(request: Request) {
       requestBody: event,
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ message: '予約が完了しました' });
   } catch (error) {
     console.error('Calendar API Error:', error);
-    return NextResponse.json({ error: '予約の追加に失敗しました' }, { status: 500 });
+    return NextResponse.json({ error: '予約の登録に失敗しました' }, { status: 500 });
   }
 } 
