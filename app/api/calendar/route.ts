@@ -37,15 +37,20 @@ export async function POST(request: Request) {
       )
     });
 
-    // 日本時間で予約時間を設定（+9時間）
+    // 日本時間で予約時間を設定
     const [hour, minute] = data.selectedTime.split(':');
     const startTime = new Date(data.selectedDate);
-    startTime.setHours(parseInt(hour) - 9, parseInt(minute), 0, 0);
+    startTime.setHours(parseInt(hour), parseInt(minute), 0, 0);
+    
+    // タイムゾーンオフセットを計算（ミリ秒）
+    const offset = startTime.getTimezoneOffset() * 60 * 1000;
+    // JSTに調整（-offset で現地時間に、+9時間でJSTに）
+    const jstStartTime = new Date(startTime.getTime() - offset + (9 * 60 * 60 * 1000));
     
     // 車検の場合は1時間、それ以外はSERVICE_CONFIGから取得
     const duration = data.service === '車検' ? 60 : SERVICE_CONFIG[data.service as ServiceType]?.duration || 60;
     
-    const endTime = new Date(startTime.getTime() + (duration * 60 * 1000));
+    const jstEndTime = new Date(jstStartTime.getTime() + (duration * 60 * 1000));
 
     const event = {
       summary: `${data.service} - ${data.companyName || data.fullName}`,
@@ -65,11 +70,11 @@ export async function POST(request: Request) {
         ${data.concerns ? `気になる点: ${data.concerns}` : ''}
       `.trim(),
       start: {
-        dateTime: startTime.toISOString(),
+        dateTime: jstStartTime.toISOString(),
         timeZone: 'Asia/Tokyo',
       },
       end: {
-        dateTime: endTime.toISOString(),
+        dateTime: jstEndTime.toISOString(),
         timeZone: 'Asia/Tokyo',
       },
     };
