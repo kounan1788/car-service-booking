@@ -77,52 +77,99 @@ const addToGoogleCalendar = (reservation: Reservation) => {
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(text)}&dates=${startTime}/${endTime}&details=${encodeURIComponent(details)}`;
 };
 
-// 祝日のリストを更新（2024年と2025年）
-const HOLIDAYS = [
-  // 2024年の祝日
-  "2024-01-01", // 元日
-  "2024-01-08", // 成人の日
-  "2024-02-11", // 建国記念の日
-  "2024-02-12", // 振替休日
-  "2024-02-23", // 天皇誕生日
-  "2024-03-20", // 春分の日
-  "2024-04-29", // 昭和の日
-  "2024-05-03", // 憲法記念日
-  "2024-05-04", // みどりの日
-  "2024-05-05", // こどもの日
-  "2024-05-06", // 振替休日
-  "2024-07-15", // 海の日
-  "2024-08-11", // 山の日
-  "2024-08-12", // 振替休日
-  "2024-09-16", // 敬老の日
-  "2024-09-22", // 秋分の日
-  "2024-09-23", // 振替休日
-  "2024-10-14", // スポーツの日
-  "2024-11-03", // 文化の日
-  "2024-11-04", // 振替休日
-  "2024-11-23", // 勤労感謝の日
+// 祝日生成関数
+const generateHolidays = (startYear: number, endYear: number) => {
+  const holidays: string[] = [];
 
-  // 2025年の祝日
-  "2025-01-01", // 元日
-  "2025-01-13", // 成人の日
-  "2025-02-11", // 建国記念の日
-  "2025-02-23", // 天皇誕生日
-  "2025-02-24", // 振替休日
-  "2025-03-20", // 春分の日
-  "2025-04-29", // 昭和の日
-  "2025-05-03", // 憲法記念日
-  "2025-05-04", // みどりの日
-  "2025-05-05", // こどもの日
-  "2025-05-06", // 振替休日
-  "2025-07-21", // 海の日
-  "2025-08-11", // 山の日
-  "2025-09-15", // 敬老の日
-  "2025-09-23", // 秋分の日
-  "2025-10-13", // スポーツの日
-  "2025-11-03", // 文化の日
-  "2025-11-23", // 勤労感謝の日
-  "2025-11-24", // 振替休日
-];
+  for (let year = startYear; year <= endYear; year++) {
+    // 元日
+    holidays.push(`${year}-01-01`);
+
+    // 成人の日（1月第2月曜）
+    const secondMonday = getSecondMonday(year, 0);
+    holidays.push(format(secondMonday, 'yyyy-MM-dd'));
+
+    // 建国記念の日
+    holidays.push(`${year}-02-11`);
+
+    // 天皇誕生日
+    holidays.push(`${year}-02-23`);
+
+    // 春分の日（おおよその計算）
+    const springEquinox = Math.floor(20.8431 + 0.242194 * (year - 1980));
+    holidays.push(`${year}-03-${springEquinox}`);
+
+    // 昭和の日
+    holidays.push(`${year}-04-29`);
+
+    // 憲法記念日
+    holidays.push(`${year}-05-03`);
+    // みどりの日
+    holidays.push(`${year}-05-04`);
+    // こどもの日
+    holidays.push(`${year}-05-05`);
+
+    // 海の日（7月第3月曜）
+    const thirdMonday = getThirdMonday(year, 6);
+    holidays.push(format(thirdMonday, 'yyyy-MM-dd'));
+
+    // 山の日
+    holidays.push(`${year}-08-11`);
+
+    // 敬老の日（9月第3月曜）
+    const respectMonday = getThirdMonday(year, 8);
+    holidays.push(format(respectMonday, 'yyyy-MM-dd'));
+
+    // 秋分の日（おおよその計算）
+    const autumnEquinox = Math.floor(23.2488 + 0.242194 * (year - 1980));
+    holidays.push(`${year}-09-${autumnEquinox}`);
+
+    // スポーツの日（10月第2月曜）
+    const sportsDay = getSecondMonday(year, 9);
+    holidays.push(format(sportsDay, 'yyyy-MM-dd'));
+
+    // 文化の日
+    holidays.push(`${year}-11-03`);
+
+    // 勤労感謝の日
+    holidays.push(`${year}-11-23`);
+  }
+
+  // 振替休日の追加
+  const allDates = holidays.map(h => new Date(h));
+  allDates.forEach(date => {
+    if (date.getDay() === 0) { // 日曜日の場合
+      const nextDay = new Date(date);
+      nextDay.setDate(date.getDate() + 1);
+      // 翌日が祝日でない場合のみ振替休日として追加
+      if (!holidays.includes(format(nextDay, 'yyyy-MM-dd'))) {
+        holidays.push(format(nextDay, 'yyyy-MM-dd'));
+      }
+    }
+  });
+
+  return holidays.sort();
+};
+
+// 第2月曜日を取得
+const getSecondMonday = (year: number, month: number) => {
+  const firstDay = new Date(year, month, 1);
+  const firstMonday = 8 - firstDay.getDay();
+  return new Date(year, month, firstMonday + 7);
+};
+
+// 第3月曜日を取得
+const getThirdMonday = (year: number, month: number) => {
+  const firstDay = new Date(year, month, 1);
+  const firstMonday = 8 - firstDay.getDay();
+  return new Date(year, month, firstMonday + 14);
+};
+
+// 祝日リストの動的生成（現在の年から10年分）
+const HOLIDAYS = generateHolidays(
+  new Date().getFullYear(),
+  new Date().getFullYear() + 10
+);
 
 // 定休日判定関数を修正
 const isClosedDay = (date: Date) => {
@@ -196,6 +243,19 @@ export default function BookingFlow() {
   const [existingEvents, setExistingEvents] = useState<ParsedEvent[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
+  // 年月選択用の状態を追加
+  const [selectedYear, setSelectedYear] = useState(currentMonth.getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth.getMonth());
+
+  // 年の選択肢を生成（現在から10年分）
+  const years = Array.from(
+    { length: 10 }, 
+    (_, i) => new Date().getFullYear() + i
+  );
+
+  // 月の選択肢
+  const months = Array.from({ length: 12 }, (_, i) => i);
+
   const generateTimeSlots = (day: Date) => {
     const slots: string[] = [];
     const isSaturday = day.getDay() === 6;
@@ -215,12 +275,18 @@ export default function BookingFlow() {
     const next = new Date(currentMonth);
     next.setMonth(next.getMonth() + 1);
     setCurrentMonth(next);
+    // 年月の状態も更新
+    setSelectedYear(next.getFullYear());
+    setSelectedMonth(next.getMonth());
   };
 
   const prevMonth = () => {
     const prev = new Date(currentMonth);
     prev.setMonth(prev.getMonth() - 1);
     setCurrentMonth(prev);
+    // 年月の状態も更新
+    setSelectedYear(prev.getFullYear());
+    setSelectedMonth(prev.getMonth());
   };
 
   const handleConfirmReservation = async () => {
@@ -342,6 +408,24 @@ export default function BookingFlow() {
     }
   };
 
+  // formDataのバリデーション関数を追加
+  const validateFormData = () => {
+    if (customerType === "lease") {
+      return !!(formData.companyName && formData.registrationNumber);
+    } else if (customerType === "new") {
+      return !!(
+        formData.fullName &&
+        formData.phone &&
+        formData.postalCode &&
+        formData.address &&
+        formData.carModel &&
+        formData.yearNumber
+      );
+    } else { // existing
+      return !!(formData.fullName && formData.registrationNumber);
+    }
+  };
+
   return (
     <div className="p-6 max-w-lg mx-auto">
       <h1 className="text-2xl font-bold text-center mb-6 text-blue-600">
@@ -423,8 +507,11 @@ export default function BookingFlow() {
                 <>
                   <input 
                     type="text" 
-                    placeholder="フルネーム" 
-                    className="block w-full p-2 mb-2 border" 
+                    placeholder="フルネーム *" 
+                    className={`block w-full p-2 mb-2 border ${
+                      formData.fullName ? '' : 'border-red-500'
+                    }`}
+                    required
                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} 
                   />
                   <input 
@@ -515,7 +602,13 @@ export default function BookingFlow() {
               )}
               <div className="flex justify-between">
                 <Button className="bg-gray-500 hover:bg-gray-600" onClick={() => setStep(1)}>戻る</Button>
-                <Button className="bg-blue-500 hover:bg-blue-600" onClick={() => setStep(3)}>次へ</Button>
+                <Button 
+                  className="bg-blue-500 hover:bg-blue-600" 
+                  onClick={() => setStep(3)} 
+                  disabled={!validateFormData()}
+                >
+                  次へ
+                </Button>
               </div>
             </div>
           )}
@@ -600,17 +693,47 @@ export default function BookingFlow() {
                 <div className="flex justify-between items-center mb-4">
                   <Button 
                     onClick={prevMonth}
-                    disabled={currentMonth <= today}
                     className="bg-gray-500 hover:bg-gray-600"
                   >
                     前月
                   </Button>
-                  <h3 className="text-lg font-bold">
-                    {format(currentMonth, 'yyyy年M月', { locale: ja })}
-                  </h3>
+                  
+                  <div className="flex gap-2">
+                    <select 
+                      value={selectedYear}
+                      onChange={(e) => {
+                        const year = parseInt(e.target.value);
+                        setSelectedYear(year);
+                        const newDate = new Date(year, selectedMonth);
+                        setCurrentMonth(newDate);
+                      }}
+                      className="p-2 border rounded"
+                    >
+                      {years.map(year => (
+                        <option key={year} value={year}>{year}年</option>
+                      ))}
+                    </select>
+                    
+                    <select 
+                      value={selectedMonth}
+                      onChange={(e) => {
+                        const month = parseInt(e.target.value);
+                        setSelectedMonth(month);
+                        const newDate = new Date(selectedYear, month);
+                        setCurrentMonth(newDate);
+                      }}
+                      className="p-2 border rounded"
+                    >
+                      {months.map(month => (
+                        <option key={month} value={month}>
+                          {month + 1}月
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  
                   <Button 
                     onClick={nextMonth}
-                    disabled={currentMonth >= addDays(today, 90)}
                     className="bg-gray-500 hover:bg-gray-600"
                   >
                     次月
@@ -621,7 +744,6 @@ export default function BookingFlow() {
                     if (!day) return <div key={`empty-${index}`} className="p-2" />;
                     
                     const isPast = day < today;
-                    const isUnavailable = day > addDays(today, 90);
                     const isClosed = isClosedDay(day);
                     
                     return (
@@ -631,14 +753,14 @@ export default function BookingFlow() {
                           p-1 md:p-2 text-sm md:text-base
                           border rounded
                           ${
-                            isPast || isUnavailable || isClosed
+                            isPast || isClosed
                               ? "bg-gray-300 cursor-not-allowed"
                               : formData.selectedDate && isSameDay(formData.selectedDate, day)
                               ? "bg-blue-500 text-white"
                               : "bg-blue-100 hover:bg-blue-300"
                           }
                         `}
-                        disabled={isPast || isUnavailable || isClosed}
+                        disabled={isPast || isClosed}
                         onClick={() => setFormData({ ...formData, selectedDate: day })}
                       >
                         {format(day, "d", { locale: ja })}
