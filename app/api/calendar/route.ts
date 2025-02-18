@@ -24,6 +24,15 @@ const SERVICE_CONFIG = {
   }
 } as const;
 
+const SERVICE_COLORS = {
+  '車検': '11',         // 赤
+  'オイル交換': '5',    // 黄
+  '12ヵ月点検': '9',    // 青
+  '6ヵ月点検(貨物車)': '9', // 青
+  'スケジュール点検': '7',  // 緑
+  'タイヤ交換': '6'     // オレンジ
+} as const;
+
 export async function POST(request: Request) {
   try {
     const data = await request.json();
@@ -77,6 +86,7 @@ export async function POST(request: Request) {
         dateTime: jstEndTime.toISOString(),
         timeZone: 'Asia/Tokyo',
       },
+      colorId: SERVICE_COLORS[data.service as ServiceType]
     };
 
     await calendar.events.insert({

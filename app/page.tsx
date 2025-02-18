@@ -41,15 +41,21 @@ const addToGoogleCalendar = (reservation: Reservation) => {
   // 日本時間で日付と時間を設定
   const date = format(reservation.selectedDate, "yyyyMMdd");
   const [hour, minute] = reservation.selectedTime.split(':');
-  const startTime = `${date}T${hour.padStart(2, '0')}${minute}00+0900`; // +0900を追加
+  const startTime = `${date}T${hour.padStart(2, '0')}${minute}00+0900`;
   
-  // 車検の場合は1時間の枠を設定
-  const duration = 60; // 車検も1時間の枠に固定
+  // サービスごとの作業時間を取得
+  let duration = 60; // デフォルトは60分
+  if (reservation.service === '車検') {
+    duration = 60; // 車検は1時間枠
+  } else {
+    const config = SERVICE_CONFIG[reservation.service as ServiceType];
+    duration = config?.duration || 60;
+  }
   
   // 終了時刻を計算（日本時間で）
   const endDate = new Date(reservation.selectedDate);
   endDate.setHours(parseInt(hour), parseInt(minute) + duration, 0);
-  const endTime = format(endDate, "yyyyMMdd'T'HHmmss'+0900'"); // +0900を追加
+  const endTime = format(endDate, "yyyyMMdd'T'HHmmss'+0900'");
   
   const text = `${reservation.service} - ${reservation.companyName || reservation.fullName}`;
   const details = `
@@ -65,6 +71,7 @@ const addToGoogleCalendar = (reservation: Reservation) => {
     サービス: ${reservation.service}
     作業時間: ${duration}分
     ${reservation.notes ? `備考: ${reservation.notes}` : ''}
+    ${reservation.concerns ? `気になる点: ${reservation.concerns}` : ''}
   `.trim();
 
   return `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(text)}&dates=${startTime}/${endTime}&details=${encodeURIComponent(details)}`;
@@ -609,14 +616,7 @@ export default function BookingFlow() {
                     次月
                   </Button>
                 </div>
-                <div className="grid grid-cols-7 gap-2 mb-2 text-center">
-                  {['日', '月', '火', '水', '木', '金', '土'].map(day => (
-                    <div key={day} className={`font-bold ${day === '日' ? 'text-red-500' : day === '土' ? 'text-blue-500' : ''}`}>
-                      {day}
-                    </div>
-                  ))}
-                </div>
-                <div className="grid grid-cols-7 gap-2">
+                <div className="grid grid-cols-7 gap-1 md:gap-2">
                   {generateCalendarGrid(currentMonth).map((day, index) => {
                     if (!day) return <div key={`empty-${index}`} className="p-2" />;
                     
@@ -627,13 +627,17 @@ export default function BookingFlow() {
                     return (
                       <button
                         key={format(day, "yyyy-MM-dd")}
-                        className={`p-2 border rounded ${
-                          isPast || isUnavailable || isClosed
-                            ? "bg-gray-300 cursor-not-allowed"
-                            : formData.selectedDate && isSameDay(formData.selectedDate, day)
-                            ? "bg-blue-500 text-white"
-                            : "bg-blue-100 hover:bg-blue-300"
-                        }`}
+                        className={`
+                          p-1 md:p-2 text-sm md:text-base
+                          border rounded
+                          ${
+                            isPast || isUnavailable || isClosed
+                              ? "bg-gray-300 cursor-not-allowed"
+                              : formData.selectedDate && isSameDay(formData.selectedDate, day)
+                              ? "bg-blue-500 text-white"
+                              : "bg-blue-100 hover:bg-blue-300"
+                          }
+                        `}
                         disabled={isPast || isUnavailable || isClosed}
                         onClick={() => setFormData({ ...formData, selectedDate: day })}
                       >
@@ -646,19 +650,23 @@ export default function BookingFlow() {
               {formData.selectedDate && (
                 <div>
                   <h3 className="text-lg font-bold mb-2">時間を選択</h3>
-                  <div className="grid grid-cols-4 gap-2">
+                  <div className="grid grid-cols-3 md:grid-cols-4 gap-1 md:gap-2">
                     {generateTimeSlots(formData.selectedDate).map((time) => {
                       const isAvailable = isTimeSlotAvailable(formData.selectedDate!, time);
                       return (
                         <button
                           key={time}
-                          className={`p-2 border rounded ${
-                            formData.selectedTime === time 
-                              ? "bg-green-300"
-                              : isAvailable
-                              ? "bg-blue-100 hover:bg-blue-300"
-                              : "bg-gray-300 cursor-not-allowed"
-                          }`}
+                          className={`
+                            p-1 md:p-2 text-sm md:text-base
+                            border rounded
+                            ${
+                              formData.selectedTime === time 
+                                ? "bg-green-300"
+                                : isAvailable
+                                ? "bg-blue-100 hover:bg-blue-300"
+                                : "bg-gray-300 cursor-not-allowed"
+                            }
+                          `}
                           onClick={() => isAvailable && setFormData({ ...formData, selectedTime: time })}
                           disabled={!isAvailable}
                         >
