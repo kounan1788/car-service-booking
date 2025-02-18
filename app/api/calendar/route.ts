@@ -44,8 +44,8 @@ export async function POST(request: Request) {
     
     // タイムゾーンオフセットを計算（ミリ秒）
     const offset = startTime.getTimezoneOffset() * 60 * 1000;
-    // JSTに調整（-offset で現地時間に、+9時間でJSTに）
-    const jstStartTime = new Date(startTime.getTime() - offset + (9 * 60 * 60 * 1000));
+    // JSTに調整（-offset で現地時間に、+15時間でJSTに）
+    const jstStartTime = new Date(startTime.getTime() - offset + (15 * 60 * 60 * 1000));
     
     // 車検の場合は1時間、それ以外はSERVICE_CONFIGから取得
     const duration = data.service === '車検' ? 60 : SERVICE_CONFIG[data.service as ServiceType]?.duration || 60;
