@@ -2,6 +2,7 @@ import { google } from 'googleapis';
 import { NextResponse } from 'next/server';
 import { ServiceType } from '@/app/config/services';
 import { parseISO, format } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
 
 const SERVICE_CONFIG = {
   '車検': {
