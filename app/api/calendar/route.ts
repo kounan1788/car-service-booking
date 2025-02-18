@@ -1,6 +1,7 @@
 import { google } from 'googleapis';
 import { NextResponse } from 'next/server';
 import { ServiceType } from '@/app/config/services';
+import { parseISO, format } from 'date-fns';
 
 const SERVICE_CONFIG = {
   '車検': {
@@ -36,16 +37,15 @@ export async function POST(request: Request) {
       )
     });
 
-    // 予約時間の設定
+    // 日本時間で予約時間を設定
     const [hour, minute] = data.selectedTime.split(':');
     const startTime = new Date(data.selectedDate);
-    startTime.setHours(parseInt(hour), parseInt(minute), 0);
-
+    startTime.setHours(parseInt(hour), parseInt(minute), 0, 0);
+    
     // 車検の場合は1時間、それ以外はSERVICE_CONFIGから取得
     const duration = data.service === '車検' ? 60 : SERVICE_CONFIG[data.service as ServiceType]?.duration || 60;
     
-    const endTime = new Date(startTime);
-    endTime.setMinutes(endTime.getMinutes() + duration);
+    const endTime = new Date(startTime.getTime() + (duration * 60 * 1000));
 
     const event = {
       summary: `${data.service} - ${data.companyName || data.fullName}`,
