@@ -21,6 +21,7 @@ interface Reservation {
   service: string;
   selectedDate: Date | null;
   selectedTime: string;
+  concerns?: string;
 }
 
 interface ParsedReservation extends Omit<Reservation, 'selectedDate'> {
@@ -37,18 +38,18 @@ interface ParsedEvent {
 const addToGoogleCalendar = (reservation: Reservation) => {
   if (!reservation.selectedDate) return '';
   
+  // 日本時間で日付と時間を設定
   const date = format(reservation.selectedDate, "yyyyMMdd");
   const [hour, minute] = reservation.selectedTime.split(':');
-  const startTime = `${date}T${hour.padStart(2, '0')}${minute}00`;
+  const startTime = `${date}T${hour.padStart(2, '0')}${minute}00+0900`; // +0900を追加
   
-  // サービスごとの作業時間を取得
-  const config = SERVICE_CONFIG[reservation.service as ServiceType];
-  const duration = config?.duration || 60; // デフォルトは60分
+  // 車検の場合は1時間の枠を設定
+  const duration = 60; // 車検も1時間の枠に固定
   
-  // 終了時刻を計算
+  // 終了時刻を計算（日本時間で）
   const endDate = new Date(reservation.selectedDate);
   endDate.setHours(parseInt(hour), parseInt(minute) + duration, 0);
-  const endTime = format(endDate, "yyyyMMdd'T'HHmmss");
+  const endTime = format(endDate, "yyyyMMdd'T'HHmmss'+0900'"); // +0900を追加
   
   const text = `${reservation.service} - ${reservation.companyName || reservation.fullName}`;
   const details = `
@@ -181,6 +182,7 @@ export default function BookingFlow() {
     service: "",
     selectedDate: null,
     selectedTime: "",
+    concerns: "",
   });
 
   const [confirmedReservations, setConfirmedReservations] = useState<Reservation[]>([]);
@@ -343,6 +345,12 @@ export default function BookingFlow() {
         <CardContent className="p-6">
           {step === 1 && (
             <div>
+              <div className="bg-yellow-100 p-4 rounded-lg mb-6 text-sm">
+                <p className="text-red-600 font-bold">
+                  当サイトはご来店専用の予約サイトになります。
+                  引取・代車がご入用の際は、076-268-1788までお電話にてご予約下さい。
+                </p>
+              </div>
               <h2 className="text-xl font-bold mb-4">お客様区分を選択</h2>
               <div className="flex gap-2 mb-4">
                 <Button 
@@ -398,6 +406,11 @@ export default function BookingFlow() {
                 <>
                   <input type="text" placeholder="会社名" className="block w-full p-2 mb-2 border" onChange={(e) => setFormData({ ...formData, companyName: e.target.value })} />
                   <input type="text" placeholder="登録番号（4桁）" className="block w-full p-2 mb-2 border" onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })} />
+                  <textarea 
+                    placeholder="気になる点（任意）" 
+                    className="block w-full p-2 mb-2 border" 
+                    onChange={(e) => setFormData({ ...formData, concerns: e.target.value })}
+                  ></textarea>
                 </>
               ) : customerType === "new" ? (
                 <>
@@ -466,6 +479,11 @@ export default function BookingFlow() {
                     />
                     <span className="flex items-center">年</span>
                   </div>
+                  <textarea 
+                    placeholder="気になる点（任意）" 
+                    className="block w-full p-2 mb-2 border" 
+                    onChange={(e) => setFormData({ ...formData, concerns: e.target.value })}
+                  ></textarea>
                 </>
               ) : (
                 <>
