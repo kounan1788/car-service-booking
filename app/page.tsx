@@ -429,6 +429,9 @@ export default function BookingFlow() {
   // 状態の追加
   const [needsTireChange, setNeedsTireChange] = useState<boolean | null>(null);
 
+  // 同意チェックの状態を追加
+  const [hasAgreed, setHasAgreed] = useState(false);
+
   return (
     <div className="p-6 max-w-lg mx-auto">
       <h1 className="text-2xl font-bold text-center mb-6 text-blue-600">
@@ -439,29 +442,46 @@ export default function BookingFlow() {
         <CardContent className="p-6">
           {step === 1 && (
             <div className="flex flex-col items-center w-full">
-              <div className="bg-yellow-100 p-4 rounded-lg mb-6 text-sm w-full">
+              <div className="bg-yellow-100 p-4 rounded-lg mb-4 text-sm w-full">
                 <p className="text-red-600 font-bold">
                   当サイトはご来店専用の予約サイトになります。
                   引取・代車がご入用の際は、076-268-1788までお電話にてご予約下さい。
                 </p>
+                
+                <div className="mt-4 flex items-center">
+                  <input
+                    type="checkbox"
+                    id="agreement"
+                    className="w-4 h-4 mr-2"
+                    checked={hasAgreed}
+                    onChange={(e) => setHasAgreed(e.target.checked)}
+                  />
+                  <label htmlFor="agreement" className="text-gray-700">
+                    上記内容に同意します
+                  </label>
+                </div>
               </div>
+
               <h2 className="text-xl font-bold mb-4">お客様区分を選択</h2>
               <div className="space-y-4 w-full">
                 <Button 
                   className="block w-full bg-blue-500 hover:bg-blue-600" 
                   onClick={() => { setCustomerType("new"); setStep(2); }}
+                  disabled={!hasAgreed}
                 >
                   新規客様
                 </Button>
                 <Button 
                   className="block w-full bg-green-500 hover:bg-green-600" 
                   onClick={() => { setCustomerType("existing"); setStep(2); }}
+                  disabled={!hasAgreed}
                 >
                   既存客様
                 </Button>
                 <Button 
                   className="block w-full bg-purple-500 hover:bg-purple-600" 
                   onClick={() => { setCustomerType("lease"); setStep(2); }}
+                  disabled={!hasAgreed}
                 >
                   リース客様
                 </Button>
@@ -611,7 +631,6 @@ export default function BookingFlow() {
             <div>
               <h2 className="text-xl font-bold mb-4">サービス選択</h2>
               
-              {/* リース客様の場合のみタイヤ交換確認を表示 */}
               {customerType === "lease" && (
                 <div className="mb-6 p-4 bg-gray-100 rounded">
                   <h3 className="text-lg font-bold mb-2">タイヤ交換の有無</h3>
@@ -632,7 +651,6 @@ export default function BookingFlow() {
                 </div>
               )}
 
-              {/* タイヤ交換の有無が選択されている場合のみサービス選択を表示 */}
               {(customerType !== "lease" || needsTireChange !== null) && (
                 <>
                   <h3 className="text-lg font-bold mb-2 text-blue-600">【点検メニュー】</h3>
