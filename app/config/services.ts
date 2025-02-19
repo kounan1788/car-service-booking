@@ -1,8 +1,8 @@
 export const SERVICE_CONFIG = {
   '車検': {
-    duration: 0,
+    duration: 60,
     maxPerDay: 2,
-    requiresTimeSlot: false
+    requiresTimeSlot: true
   },
   'オイル交換': {
     duration: 30,
