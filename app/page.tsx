@@ -35,6 +35,22 @@ interface ParsedEvent {
   duration?: string;
 }
 
+interface AdminReservation {
+  customerName: string;
+  registrationNumber: string;
+  repairDetails: string;
+  deliveryDate: string;
+  visitType: "来店" | "引取";
+  needsRentalCar: boolean;
+  rentalCarDetails?: string;
+  notes: string;
+  selectedDate: Date | null;
+  selectedTime: string;
+}
+
+// 型の修正
+type ConfirmedReservation = Reservation | AdminReservation;
+
 const addToGoogleCalendar = (reservation: Reservation) => {
   if (!reservation.selectedDate) return '';
   
@@ -239,7 +255,7 @@ export default function BookingFlow() {
     concerns: "",
   });
 
-  const [confirmedReservations, setConfirmedReservations] = useState<Reservation[]>([]);
+  const [confirmedReservations, setConfirmedReservations] = useState<ConfirmedReservation[]>([]);
   const [existingEvents, setExistingEvents] = useState<ParsedEvent[]>([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
@@ -291,23 +307,36 @@ export default function BookingFlow() {
 
   const handleConfirmReservation = async () => {
     try {
+      const reservationData = isAdminMode ? {
+        ...adminFormData,
+        selectedDate: adminFormData.selectedDate?.toISOString(),
+      } : {
+        ...formData,
+        selectedDate: formData.selectedDate?.toISOString(),
+      };
+
       const response = await fetch('/api/calendar', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(reservationData),
       });
 
       if (!response.ok) {
-        const error: ApiError = await response.json();
-        throw new Error(error.message || '予約の追加に失敗しました');
+        const error = await response.json();
+        throw new Error(error.error || '予約の追加に失敗しました');
       }
 
-      setConfirmedReservations(prev => [...prev, formData]);
+      if (isAdminMode) {
+        setConfirmedReservations(prev => [...prev, adminFormData]);
+      } else {
+        setConfirmedReservations(prev => [...prev, formData]);
+      }
       setStep(6);
     } catch (error) {
-      handleError(error);
+      console.error('Reservation Error:', error);
+      alert(error instanceof Error ? error.message : '予約の追加に失敗しました');
     }
   };
 
@@ -432,6 +461,87 @@ export default function BookingFlow() {
   // 同意チェックの状態を追加
   const [hasAgreed, setHasAgreed] = useState(false);
 
+  // 状態の追加
+  const [isAdminMode, setIsAdminMode] = useState(false);
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+
+  // 管理者用の予約データ型
+  interface AdminReservation {
+    customerName: string;
+    registrationNumber: string;
+    repairDetails: string;
+    deliveryDate: string;
+    visitType: "来店" | "引取";
+    needsRentalCar: boolean;
+    rentalCarDetails?: string;
+    notes: string;
+    selectedDate: Date | null;
+    selectedTime: string;
+  }
+
+  // パスワード確認モーダルを修正
+  const PasswordModal = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+      <div className="bg-white p-6 rounded-lg">
+        <h3 className="text-lg font-bold mb-4">パスワードを入力してください</h3>
+        <input
+          type="password"
+          className="block w-full p-2 mb-4 border rounded"
+          value={adminPassword}
+          onChange={(e) => setAdminPassword(e.target.value)}
+          autoFocus  // 自動フォーカス
+          onKeyDown={(e) => {  // Enterキーでの送信を追加
+            if (e.key === 'Enter') {
+              if (adminPassword === '1788') {
+                setIsAdminMode(true);
+                setShowPasswordModal(false);
+                setStep(2);
+                setAdminPassword('');
+              } else {
+                alert('パスワードが違います');
+              }
+            }
+          }}
+        />
+        <div className="flex justify-end gap-2">
+          <Button onClick={() => {
+            if (adminPassword === '1788') {
+              setIsAdminMode(true);
+              setShowPasswordModal(false);
+              setStep(2);
+              setAdminPassword('');
+            } else {
+              alert('パスワードが違います');
+            }
+          }}>
+            確認
+          </Button>
+          <Button onClick={() => {
+            setShowPasswordModal(false);
+            setAdminPassword('');
+          }}>
+            キャンセル
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // 管理者用の状態を追加
+  const [adminFormData, setAdminFormData] = useState<AdminReservation>({
+    customerName: "",
+    registrationNumber: "",
+    repairDetails: "",
+    deliveryDate: "",
+    visitType: "来店",
+    needsRentalCar: false,
+    rentalCarDetails: "",
+    notes: "",
+    selectedDate: null,
+    selectedTime: "",
+  });
+
   return (
     <div className="p-6 max-w-lg mx-auto">
       <h1 className="text-2xl font-bold text-center mb-6 text-blue-600">
@@ -486,10 +596,21 @@ export default function BookingFlow() {
                   リース客様
                 </Button>
               </div>
+
+              <div className="mt-8 w-full">  {/* 間隔を空けて配置 */}
+                <Button 
+                  className="block w-full bg-gray-500 hover:bg-gray-600" 
+                  onClick={() => setShowPasswordModal(true)}
+                >
+                  港南自動車用
+                </Button>
+              </div>
+              
+              {showPasswordModal && <PasswordModal />}
             </div>
           )}
 
-          {step === 2 && (
+          {step === 2 && !isAdminMode && (
             <div>
               <h2 className="text-xl font-bold mb-4">お客様情報入力</h2>
               {customerType === "lease" ? (
@@ -624,6 +745,85 @@ export default function BookingFlow() {
                   次へ
                 </Button>
               </div>
+            </div>
+          )}
+
+          {step === 2 && isAdminMode && (
+            <div>
+              <h2 className="text-xl font-bold mb-4">予約内容入力</h2>
+              <input 
+                type="text"
+                placeholder="お客様名 *"
+                className="block w-full p-2 mb-2 border"
+                onChange={(e) => setAdminFormData({ ...adminFormData, customerName: e.target.value })}
+              />
+              <input 
+                type="text"
+                placeholder="登録番号 *"
+                className="block w-full p-2 mb-2 border"
+                onChange={(e) => setAdminFormData({ ...adminFormData, registrationNumber: e.target.value })}
+              />
+              <textarea 
+                placeholder="修理内容 *"
+                className="block w-full p-2 mb-2 border"
+                onChange={(e) => setAdminFormData({ ...adminFormData, repairDetails: e.target.value })}
+              />
+              <div className="mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  いつまでに納車するのか *
+                </label>
+                <input 
+                  type="date"
+                  className="block w-full p-2 border"
+                  onChange={(e) => setAdminFormData({ ...adminFormData, deliveryDate: e.target.value })}
+                />
+              </div>
+              <div className="mb-2">
+                <select 
+                  className="block w-full p-2 border"
+                  onChange={(e) => setAdminFormData({ 
+                    ...adminFormData, 
+                    visitType: e.target.value as "来店" | "引取"
+                  })}
+                >
+                  <option value="来店">来店</option>
+                  <option value="引取">引取</option>
+                </select>
+              </div>
+              <div className="mb-2">
+                <label className="flex items-center">
+                  <input 
+                    type="checkbox"
+                    className="mr-2"
+                    onChange={(e) => setAdminFormData({ 
+                      ...adminFormData, 
+                      needsRentalCar: e.target.checked 
+                    })}
+                  />
+                  代車が必要
+                </label>
+              </div>
+              {adminFormData.needsRentalCar && (
+                <textarea 
+                  placeholder="代車の詳細"
+                  className="block w-full p-2 mb-2 border"
+                  onChange={(e) => setAdminFormData({ 
+                    ...adminFormData, 
+                    rentalCarDetails: e.target.value 
+                  })}
+                />
+              )}
+              <textarea 
+                placeholder="備考"
+                className="block w-full p-2 mb-2 border"
+                onChange={(e) => setAdminFormData({ ...adminFormData, notes: e.target.value })}
+              />
+              <Button 
+                onClick={() => setStep(4)}
+                disabled={!adminFormData.customerName || !adminFormData.registrationNumber || !adminFormData.repairDetails || !adminFormData.deliveryDate}
+              >
+                日時選択へ
+              </Button>
             </div>
           )}
 
@@ -795,13 +995,20 @@ export default function BookingFlow() {
                           ${
                             isPast || isUnavailable || isClosed
                               ? "bg-gray-300 cursor-not-allowed"
-                              : formData.selectedDate && isSameDay(formData.selectedDate, day)
-                              ? "bg-blue-500 text-white"
-                              : "bg-blue-100 hover:bg-blue-300"
+                              : isAdminMode 
+                                ? adminFormData.selectedDate && isSameDay(adminFormData.selectedDate, day)
+                                  ? "bg-blue-500 text-white"
+                                  : "bg-blue-100 hover:bg-blue-300"
+                                : formData.selectedDate && isSameDay(formData.selectedDate, day)
+                                  ? "bg-blue-500 text-white"
+                                  : "bg-blue-100 hover:bg-blue-300"
                           }
                         `}
                         disabled={isPast || isUnavailable || isClosed}
-                        onClick={() => setFormData({ ...formData, selectedDate: day })}
+                        onClick={() => isAdminMode 
+                          ? setAdminFormData({ ...adminFormData, selectedDate: day })
+                          : setFormData({ ...formData, selectedDate: day })
+                        }
                       >
                         {format(day, "d", { locale: ja })}
                       </button>
@@ -809,12 +1016,15 @@ export default function BookingFlow() {
                   })}
                 </div>
               </div>
-              {formData.selectedDate && (
+              {(isAdminMode ? adminFormData.selectedDate : formData.selectedDate) && (
                 <div>
                   <h3 className="text-lg font-bold mb-2">時間を選択</h3>
                   <div className="grid grid-cols-3 md:grid-cols-4 gap-1 md:gap-2">
-                    {generateTimeSlots(formData.selectedDate).map((time) => {
-                      const isAvailable = isTimeSlotAvailable(formData.selectedDate!, time);
+                    {generateTimeSlots(isAdminMode ? adminFormData.selectedDate! : formData.selectedDate!).map((time) => {
+                      const isAvailable = isTimeSlotAvailable(
+                        isAdminMode ? adminFormData.selectedDate! : formData.selectedDate!, 
+                        time
+                      );
                       return (
                         <button
                           key={time}
@@ -822,14 +1032,22 @@ export default function BookingFlow() {
                             p-1 md:p-2 text-sm md:text-base
                             border rounded
                             ${
-                              formData.selectedTime === time 
+                              (isAdminMode ? adminFormData.selectedTime : formData.selectedTime) === time 
                                 ? "bg-green-300"
                                 : isAvailable
                                 ? "bg-blue-100 hover:bg-blue-300"
                                 : "bg-gray-300 cursor-not-allowed"
                             }
                           `}
-                          onClick={() => isAvailable && setFormData({ ...formData, selectedTime: time })}
+                          onClick={() => {
+                            if (isAvailable) {
+                              if (isAdminMode) {
+                                setAdminFormData({ ...adminFormData, selectedTime: time });
+                              } else {
+                                setFormData({ ...formData, selectedTime: time });
+                              }
+                            }
+                          }}
                           disabled={!isAvailable}
                         >
                           {time}
@@ -837,14 +1055,19 @@ export default function BookingFlow() {
                       );
                     })}
                   </div>
-                  {generateTimeSlots(formData.selectedDate).length === 0 && (
+                  {generateTimeSlots(isAdminMode ? adminFormData.selectedDate! : formData.selectedDate!).length === 0 && (
                     <p className="text-red-500">この日は予約可能な時間帯がありません。</p>
                   )}
                 </div>
               )}
               <div className="flex justify-between mt-4">
-                <Button onClick={() => setStep(3)}>戻る</Button>
-                <Button onClick={() => setStep(5)} disabled={!formData.selectedDate || !formData.selectedTime}>次へ</Button>
+                <Button onClick={() => setStep(isAdminMode ? 2 : 3)}>戻る</Button>
+                <Button 
+                  onClick={() => setStep(5)} 
+                  disabled={!(isAdminMode ? adminFormData.selectedDate && adminFormData.selectedTime : formData.selectedDate && formData.selectedTime)}
+                >
+                  次へ
+                </Button>
               </div>
             </div>
           )}
@@ -852,16 +1075,33 @@ export default function BookingFlow() {
           {step === 5 && (
             <div>
               <h2 className="text-xl font-bold mb-4">予約確認</h2>
-              <ul className="list-disc pl-5">
-                <li>名前/会社名: {formData.companyName || formData.fullName}</li>
-                {formData.phone && <li>電話番号: {formData.phone}</li>}
-                {formData.address && <li>住所: {formData.address}</li>}
-                {formData.carModel && <li>車種: {formData.carModel}</li>}
-                {formData.yearNumber && <li>年式: {formData.yearEra}{formData.yearNumber}年</li>}
-                <li>サービス: {formData.service}</li>
-                <li>予約日時: {formData.selectedDate ? format(formData.selectedDate, "yyyy/MM/dd") : "未選択"}</li>
-                <li>時間: {formData.selectedTime}</li>
-              </ul>
+              {isAdminMode ? (
+                <ul className="list-disc pl-5">
+                  <li>お客様名: {adminFormData.customerName}</li>
+                  <li>登録番号: {adminFormData.registrationNumber}</li>
+                  <li>修理内容: {adminFormData.repairDetails}</li>
+                  <li>納車希望日: {adminFormData.deliveryDate}</li>
+                  <li>来店/引取: {adminFormData.visitType}</li>
+                  <li>代車: {adminFormData.needsRentalCar ? "必要" : "不要"}</li>
+                  {adminFormData.needsRentalCar && adminFormData.rentalCarDetails && (
+                    <li>代車詳細: {adminFormData.rentalCarDetails}</li>
+                  )}
+                  {adminFormData.notes && <li>備考: {adminFormData.notes}</li>}
+                  <li>予約日時: {adminFormData.selectedDate ? format(adminFormData.selectedDate, "yyyy/MM/dd") : "未選択"}</li>
+                  <li>時間: {adminFormData.selectedTime}</li>
+                </ul>
+              ) : (
+                <ul className="list-disc pl-5">
+                  <li>名前/会社名: {formData.companyName || formData.fullName}</li>
+                  {formData.phone && <li>電話番号: {formData.phone}</li>}
+                  {formData.address && <li>住所: {formData.address}</li>}
+                  {formData.carModel && <li>車種: {formData.carModel}</li>}
+                  {formData.yearNumber && <li>年式: {formData.yearEra}{formData.yearNumber}年</li>}
+                  <li>サービス: {formData.service}</li>
+                  <li>予約日時: {formData.selectedDate ? format(formData.selectedDate, "yyyy/MM/dd") : "未選択"}</li>
+                  <li>時間: {formData.selectedTime}</li>
+                </ul>
+              )}
               <div className="flex justify-between mt-4">
                 <Button onClick={() => setStep(4)}>戻る</Button>
                 <Button onClick={handleConfirmReservation}>予約確定</Button>
@@ -873,24 +1113,31 @@ export default function BookingFlow() {
             <div>
               <h2 className="text-xl font-bold text-green-600">予約完了しました！</h2>
               <h3 className="text-lg font-bold mt-4">予約内容:</h3>
-              <ul className="list-disc pl-5">
-                <li>名前/会社名: {formData.companyName || formData.fullName}</li>
-                <li>サービス: {formData.service}</li>
-                <li>予約日時: {formData.selectedDate ? format(formData.selectedDate, "yyyy/MM/dd") : "未選択"}</li>
-                <li>時間: {formData.selectedTime}</li>
-              </ul>
-              <a
-                href={addToGoogleCalendar(formData)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-block mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-              >
-                Googleカレンダーに追加
-              </a>
-              <Button className="mt-4 ml-4" onClick={() => setStep(1)}>トップ画面へ戻る</Button>
+              {isAdminMode ? (
+                <ul className="list-disc pl-5">
+                  <li>お客様名: {adminFormData.customerName}</li>
+                  <li>登録番号: {adminFormData.registrationNumber}</li>
+                  <li>修理内容: {adminFormData.repairDetails}</li>
+                  <li>納車希望日: {adminFormData.deliveryDate}</li>
+                  <li>来店/引取: {adminFormData.visitType}</li>
+                  <li>代車: {adminFormData.needsRentalCar ? "必要" : "不要"}</li>
+                  {adminFormData.needsRentalCar && adminFormData.rentalCarDetails && (
+                    <li>代車詳細: {adminFormData.rentalCarDetails}</li>
+                  )}
+                  <li>予約日時: {adminFormData.selectedDate ? format(adminFormData.selectedDate, "yyyy/MM/dd") : "未選択"}</li>
+                  <li>時間: {adminFormData.selectedTime}</li>
+                </ul>
+              ) : (
+                <ul className="list-disc pl-5">
+                  <li>名前/会社名: {formData.companyName || formData.fullName}</li>
+                  <li>サービス: {formData.service}</li>
+                  <li>予約日時: {formData.selectedDate ? format(formData.selectedDate, "yyyy/MM/dd") : "未選択"}</li>
+                  <li>時間: {formData.selectedTime}</li>
+                </ul>
+              )}
+              <Button className="mt-4" onClick={() => setStep(1)}>トップ画面へ戻る</Button>
             </div>
           )}
-
         </CardContent>
       </Card>
     </div>
