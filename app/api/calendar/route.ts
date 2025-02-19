@@ -62,7 +62,7 @@ export async function POST(request: Request) {
     const jstEndTime = new Date(jstStartTime.getTime() + (duration * 60 * 1000));
 
     const event = {
-      summary: `${data.service} - ${data.companyName || data.fullName}`,
+      summary: `【未確認】${data.service} - ${data.companyName || data.fullName}`,
       description: `
         【お客様情報】
         ${data.companyName ? `会社名: ${data.companyName}` : `お名前: ${data.fullName}`}
