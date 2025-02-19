@@ -818,12 +818,20 @@ export default function BookingFlow() {
                 className="block w-full p-2 mb-2 border"
                 onChange={(e) => setAdminFormData({ ...adminFormData, notes: e.target.value })}
               />
-              <Button 
-                onClick={() => setStep(4)}
-                disabled={!adminFormData.customerName || !adminFormData.registrationNumber || !adminFormData.repairDetails || !adminFormData.deliveryDate}
-              >
-                日時選択へ
-              </Button>
+              <div className="flex justify-between mt-4">
+                <Button onClick={() => {
+                  setIsAdminMode(false);
+                  setStep(1);
+                }}>
+                  戻る
+                </Button>
+                <Button 
+                  onClick={() => setStep(4)}
+                  disabled={!adminFormData.customerName || !adminFormData.registrationNumber || !adminFormData.repairDetails || !adminFormData.deliveryDate}
+                >
+                  日時選択へ
+                </Button>
+              </div>
             </div>
           )}
 

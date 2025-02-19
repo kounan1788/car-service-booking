@@ -51,33 +51,46 @@ export async function POST(request: Request) {
     const startTime = new Date(data.selectedDate);
     startTime.setHours(parseInt(hour), parseInt(minute), 0, 0);
     
-    // タイムゾーンオフセットを計算（ミリ秒）
     const offset = startTime.getTimezoneOffset() * 60 * 1000;
-    // JSTに調整（-offset で現地時間に、+15時間でJSTに）
     const jstStartTime = new Date(startTime.getTime() - offset + (15 * 60 * 60 * 1000));
     
-    // 車検の場合は1時間、それ以外はSERVICE_CONFIGから取得
-    const duration = data.service === '車検' ? 60 : SERVICE_CONFIG[data.service as ServiceType]?.duration || 60;
-    
+    // 作業時間を1時間に設定
+    const duration = 60;
     const jstEndTime = new Date(jstStartTime.getTime() + (duration * 60 * 1000));
 
+    // 管理者予約かどうかを判定
+    const isAdminBooking = 'repairDetails' in data;
+
     const event = {
-      summary: `【未確認】${data.service} - ${data.companyName || data.fullName}`,
-      description: `
-        【お客様情報】
-        ${data.companyName ? `会社名: ${data.companyName}` : `お名前: ${data.fullName}`}
-        ${data.phone ? `電話番号: ${data.phone}` : ''}
-        ${data.address ? `住所: ${data.address}` : ''}
-        ${data.carModel ? `車種: ${data.carModel}` : ''}
-        ${data.yearNumber ? `年式: ${data.yearEra}${data.yearNumber}年` : ''}
-        ${data.registrationNumber ? `登録番号: ${data.registrationNumber}` : ''}
-        
-        【予約内容】
-        サービス: ${data.service}
-        作業時間: ${duration}分
-        ${data.notes ? `備考: ${data.notes}` : ''}
-        ${data.concerns ? `気になる点: ${data.concerns}` : ''}
-      `.trim(),
+      summary: isAdminBooking 
+        ? `【未確認】${data.customerName} - ${data.repairDetails}`
+        : `【未確認】${data.service} - ${data.companyName || data.fullName}`,
+      description: isAdminBooking 
+        ? `
+          【お客様情報】
+          お客様名: ${data.customerName}
+          登録番号: ${data.registrationNumber}
+          修理内容: ${data.repairDetails}
+          納車希望日: ${data.deliveryDate}
+          来店/引取: ${data.visitType}
+          代車: ${data.needsRentalCar ? `必要\n${data.rentalCarDetails ? `代車詳細: ${data.rentalCarDetails}` : ''}` : '不要'}
+          ${data.notes ? `備考: ${data.notes}` : ''}
+        `.trim()
+        : `
+          【お客様情報】
+          ${data.companyName ? `会社名: ${data.companyName}` : `お名前: ${data.fullName}`}
+          ${data.phone ? `電話番号: ${data.phone}` : ''}
+          ${data.address ? `住所: ${data.address}` : ''}
+          ${data.carModel ? `車種: ${data.carModel}` : ''}
+          ${data.yearNumber ? `年式: ${data.yearEra}${data.yearNumber}年` : ''}
+          ${data.registrationNumber ? `登録番号: ${data.registrationNumber}` : ''}
+          
+          【予約内容】
+          サービス: ${data.service}
+          作業時間: ${duration}分
+          ${data.notes ? `備考: ${data.notes}` : ''}
+          ${data.concerns ? `気になる点: ${data.concerns}` : ''}
+        `.trim(),
       start: {
         dateTime: jstStartTime.toISOString(),
         timeZone: 'Asia/Tokyo',
@@ -86,7 +99,7 @@ export async function POST(request: Request) {
         dateTime: jstEndTime.toISOString(),
         timeZone: 'Asia/Tokyo',
       },
-      colorId: SERVICE_COLORS[data.service as ServiceType]
+      colorId: isAdminBooking ? '1' : SERVICE_COLORS[data.service as ServiceType]
     };
 
     await calendar.events.insert({
