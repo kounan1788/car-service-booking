@@ -486,12 +486,14 @@ export default function BookingFlow() {
       <div className="bg-white p-6 rounded-lg">
         <h3 className="text-lg font-bold mb-4">パスワードを入力してください</h3>
         <input
-          type="password"
+          type="number"
+          inputMode="numeric"
+          pattern="[0-9]*"
           className="block w-full p-2 mb-4 border rounded"
           value={adminPassword}
           onChange={(e) => setAdminPassword(e.target.value)}
-          autoFocus  // 自動フォーカス
-          onKeyDown={(e) => {  // Enterキーでの送信を追加
+          autoFocus
+          onKeyDown={(e) => {
             if (e.key === 'Enter') {
               if (adminPassword === '1788') {
                 setIsAdminMode(true);
