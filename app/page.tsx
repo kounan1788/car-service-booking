@@ -426,6 +426,9 @@ export default function BookingFlow() {
     }
   };
 
+  // 状態の追加
+  const [needsTireChange, setNeedsTireChange] = useState<boolean | null>(null);
+
   return (
     <div className="p-6 max-w-lg mx-auto">
       <h1 className="text-2xl font-bold text-center mb-6 text-blue-600">
@@ -435,58 +438,34 @@ export default function BookingFlow() {
       <Card>
         <CardContent className="p-6">
           {step === 1 && (
-            <div>
-              <div className="bg-yellow-100 p-4 rounded-lg mb-6 text-sm">
+            <div className="flex flex-col items-center w-full">
+              <div className="bg-yellow-100 p-4 rounded-lg mb-6 text-sm w-full">
                 <p className="text-red-600 font-bold">
                   当サイトはご来店専用の予約サイトになります。
                   引取・代車がご入用の際は、076-268-1788までお電話にてご予約下さい。
                 </p>
               </div>
               <h2 className="text-xl font-bold mb-4">お客様区分を選択</h2>
-              <div className="flex gap-2 mb-4">
+              <div className="space-y-4 w-full">
                 <Button 
-                  className="flex-1 bg-blue-500 hover:bg-blue-600" 
+                  className="block w-full bg-blue-500 hover:bg-blue-600" 
                   onClick={() => { setCustomerType("new"); setStep(2); }}
                 >
-                  新規客
+                  新規客様
                 </Button>
                 <Button 
-                  className="flex-1 bg-green-500 hover:bg-green-600" 
+                  className="block w-full bg-green-500 hover:bg-green-600" 
                   onClick={() => { setCustomerType("existing"); setStep(2); }}
                 >
-                  既存客
+                  既存客様
                 </Button>
                 <Button 
-                  className="flex-1 bg-purple-500 hover:bg-purple-600" 
+                  className="block w-full bg-purple-500 hover:bg-purple-600" 
                   onClick={() => { setCustomerType("lease"); setStep(2); }}
                 >
-                  リース客
+                  リース客様
                 </Button>
               </div>
-              <Button 
-                className="w-full bg-gray-500 hover:bg-gray-600" 
-                onClick={() => setStep(7)}
-              >
-                予約履歴を確認
-              </Button>
-            </div>
-          )}
-
-          {step === 7 && (
-            <div>
-              <h2 className="text-xl font-bold mb-4">予約履歴</h2>
-              {confirmedReservations.length === 0 ? (
-                <p>予約履歴がありません。</p>
-              ) : (
-                <ul className="list-disc pl-5">
-                  {confirmedReservations.map((res, index) => (
-                    <li key={index} className="mb-2">
-                      {res.service} - {res.selectedDate && format(res.selectedDate, "yyyy/MM/dd")} {res.selectedTime}
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <Button className="mt-4" onClick={() => setStep(1)}>トップ画面に戻る</Button>
             </div>
           )}
 
@@ -496,7 +475,17 @@ export default function BookingFlow() {
               {customerType === "lease" ? (
                 <>
                   <input type="text" placeholder="会社名" className="block w-full p-2 mb-2 border" onChange={(e) => setFormData({ ...formData, companyName: e.target.value })} />
-                  <input type="text" placeholder="登録番号（4桁）" className="block w-full p-2 mb-2 border" onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })} />
+                  <input 
+                    type="tel"
+                    placeholder="登録番号（4桁）" 
+                    className="block w-full p-2 mb-2 border"
+                    maxLength={4}
+                    value={formData.registrationNumber}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9]/g, '').replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
+                      setFormData({ ...formData, registrationNumber: value });
+                    }} 
+                  />
                   <textarea 
                     placeholder="気になる点（任意）" 
                     className="block w-full p-2 mb-2 border" 
@@ -588,10 +577,15 @@ export default function BookingFlow() {
                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} 
                   />
                   <input 
-                    type="text" 
+                    type="tel"
                     placeholder="登録番号（4桁）" 
-                    className="block w-full p-2 mb-2 border" 
-                    onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })} 
+                    className="block w-full p-2 mb-2 border"
+                    maxLength={4}
+                    value={formData.registrationNumber}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/[^0-9]/g, '').replace(/[０-９]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0));
+                      setFormData({ ...formData, registrationNumber: value });
+                    }} 
                   />
                   <textarea 
                     placeholder="車の気になる点（任意）" 
@@ -617,71 +611,97 @@ export default function BookingFlow() {
             <div>
               <h2 className="text-xl font-bold mb-4">サービス選択</h2>
               
-              <h3 className="text-lg font-bold mb-2 text-blue-600">【点検メニュー】</h3>
-              <div className="space-y-4 mb-6">
-                <div>
-                  <Button 
-                    className="block w-full bg-indigo-500 hover:bg-indigo-600" 
-                    onClick={() => { setFormData({ ...formData, service: "車検" }); setStep(4); }}
-                  >
-                    車検
-                  </Button>
-                  <p className="text-base text-gray-700 mt-1 ml-2">作業時間は1日です。車両の納車は翌日になります。</p>
+              {/* リース客様の場合のみタイヤ交換確認を表示 */}
+              {customerType === "lease" && (
+                <div className="mb-6 p-4 bg-gray-100 rounded">
+                  <h3 className="text-lg font-bold mb-2">タイヤ交換の有無</h3>
+                  <div className="flex gap-4">
+                    <Button
+                      className={`${needsTireChange === true ? 'bg-blue-500' : 'bg-gray-300'}`}
+                      onClick={() => setNeedsTireChange(true)}
+                    >
+                      あり
+                    </Button>
+                    <Button
+                      className={`${needsTireChange === false ? 'bg-blue-500' : 'bg-gray-300'}`}
+                      onClick={() => setNeedsTireChange(false)}
+                    >
+                      なし
+                    </Button>
+                  </div>
                 </div>
+              )}
 
-                <div>
-                  <Button 
-                    className="block w-full bg-indigo-500 hover:bg-indigo-600" 
-                    onClick={() => { setFormData({ ...formData, service: "12ヵ月点検" }); setStep(4); }}
-                  >
-                    12ヵ月点検
-                  </Button>
-                  <p className="text-base text-gray-700 mt-1 ml-2">作業時間は約1時間30分です。</p>
-                </div>
+              {/* タイヤ交換の有無が選択されている場合のみサービス選択を表示 */}
+              {(customerType !== "lease" || needsTireChange !== null) && (
+                <>
+                  <h3 className="text-lg font-bold mb-2 text-blue-600">【点検メニュー】</h3>
+                  <div className="space-y-4 mb-6">
+                    <div>
+                      <Button 
+                        className="block w-full bg-indigo-500 hover:bg-indigo-600" 
+                        onClick={() => { setFormData({ ...formData, service: "車検" }); setStep(4); }}
+                      >
+                        車検
+                      </Button>
+                      <p className="text-base text-gray-700 mt-1 ml-2">作業時間は1日です。車両の納車は翌日になります。</p>
+                    </div>
 
-                <div>
-                  <Button 
-                    className="block w-full bg-indigo-500 hover:bg-indigo-600" 
-                    onClick={() => { setFormData({ ...formData, service: "6ヵ月点検(貨物車)" }); setStep(4); }}
-                  >
-                    6ヵ月点検(貨物車)
-                  </Button>
-                  <p className="text-base text-gray-700 mt-1 ml-2">作業時間は約1時間30分です。</p>
-                </div>
+                    <div>
+                      <Button 
+                        className="block w-full bg-indigo-500 hover:bg-indigo-600" 
+                        onClick={() => { setFormData({ ...formData, service: "12ヵ月点検" }); setStep(4); }}
+                      >
+                        12ヵ月点検
+                      </Button>
+                      <p className="text-base text-gray-700 mt-1 ml-2">作業時間は約1時間30分です。</p>
+                    </div>
 
-                <div>
-                  <Button 
-                    className="block w-full bg-indigo-500 hover:bg-indigo-600" 
-                    onClick={() => { setFormData({ ...formData, service: "スケジュール点検" }); setStep(4); }}
-                  >
-                    スケジュール点検
-                  </Button>
-                  <p className="text-base text-gray-700 mt-1 ml-2">作業時間は約1時間です。</p>
-                </div>
-              </div>
+                    <div>
+                      <Button 
+                        className="block w-full bg-indigo-500 hover:bg-indigo-600" 
+                        onClick={() => { setFormData({ ...formData, service: "6ヵ月点検(貨物車)" }); setStep(4); }}
+                      >
+                        6ヵ月点検(貨物車)
+                      </Button>
+                      <p className="text-base text-gray-700 mt-1 ml-2">作業時間は約1時間30分です。</p>
+                    </div>
 
-              <h3 className="text-lg font-bold mb-2 text-blue-600">【ピットメニュー】</h3>
-              <div className="space-y-4">
-                <div>
-                  <Button 
-                    className="block w-full bg-indigo-500 hover:bg-indigo-600" 
-                    onClick={() => { setFormData({ ...formData, service: "オイル交換" }); setStep(4); }}
-                  >
-                    オイル交換
-                  </Button>
-                  <p className="text-base text-gray-700 mt-1 ml-2">作業時間は約30分です。</p>
-                </div>
+                    <div>
+                      <Button 
+                        className="block w-full bg-indigo-500 hover:bg-indigo-600" 
+                        onClick={() => { setFormData({ ...formData, service: "スケジュール点検" }); setStep(4); }}
+                      >
+                        スケジュール点検
+                      </Button>
+                      <p className="text-base text-gray-700 mt-1 ml-2">作業時間は約1時間です。</p>
+                    </div>
+                  </div>
 
-                <div>
-                  <Button 
-                    className="block w-full bg-indigo-500 hover:bg-indigo-600" 
-                    onClick={() => { setFormData({ ...formData, service: "タイヤ交換" }); setStep(4); }}
-                  >
-                    タイヤ交換
-                  </Button>
-                  <p className="text-base text-gray-700 mt-1 ml-2">作業時間は約30分です。</p>
-                </div>
-              </div>
+                  <h3 className="text-lg font-bold mb-2 text-blue-600">【ピットメニュー】</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <Button 
+                        className="block w-full bg-indigo-500 hover:bg-indigo-600" 
+                        onClick={() => { setFormData({ ...formData, service: "オイル交換" }); setStep(4); }}
+                      >
+                        オイル交換
+                      </Button>
+                      <p className="text-base text-gray-700 mt-1 ml-2">作業時間は約30分です。</p>
+                    </div>
+
+                    <div>
+                      <Button 
+                        className="block w-full bg-indigo-500 hover:bg-indigo-600" 
+                        onClick={() => { setFormData({ ...formData, service: "タイヤ交換" }); setStep(4); }}
+                      >
+                        タイヤ交換
+                      </Button>
+                      <p className="text-base text-gray-700 mt-1 ml-2">作業時間は約30分です。</p>
+                    </div>
+                  </div>
+                </>
+              )}
               <Button className="mt-6 bg-gray-500 hover:bg-gray-600" onClick={() => setStep(2)}>戻る</Button>
             </div>
           )}
@@ -744,6 +764,8 @@ export default function BookingFlow() {
                     if (!day) return <div key={`empty-${index}`} className="p-2" />;
                     
                     const isPast = day < today;
+                    const isTwoWeeksLater = needsTireChange ? day < addDays(today, 14) : false;
+                    const isUnavailable = isTwoWeeksLater;
                     const isClosed = isClosedDay(day);
                     
                     return (
@@ -753,14 +775,14 @@ export default function BookingFlow() {
                           p-1 md:p-2 text-sm md:text-base
                           border rounded
                           ${
-                            isPast || isClosed
+                            isPast || isUnavailable || isClosed
                               ? "bg-gray-300 cursor-not-allowed"
                               : formData.selectedDate && isSameDay(formData.selectedDate, day)
                               ? "bg-blue-500 text-white"
                               : "bg-blue-100 hover:bg-blue-300"
                           }
                         `}
-                        disabled={isPast || isClosed}
+                        disabled={isPast || isUnavailable || isClosed}
                         onClick={() => setFormData({ ...formData, selectedDate: day })}
                       >
                         {format(day, "d", { locale: ja })}
