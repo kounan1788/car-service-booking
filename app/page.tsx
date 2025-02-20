@@ -600,21 +600,21 @@ export default function BookingFlow() {
               <h2 className="text-xl font-bold mb-4">お客様タイプを選択</h2>
               <div className="space-y-4 w-full">
                 <Button 
-                  className="block w-full bg-green-500 hover:bg-green-600" 
+                  className="block w-full bg-blue-500 hover:bg-blue-600 text-white" 
                   onClick={() => handleCustomerTypeSelect("new")}
                   disabled={!hasAgreed}
                 >
                   新規のお客様
                 </Button>
                 <Button 
-                  className="block w-full bg-green-500 hover:bg-green-600" 
+                  className="block w-full bg-emerald-500 hover:bg-emerald-600 text-white" 
                   onClick={() => handleCustomerTypeSelect("existing")}
                   disabled={!hasAgreed}
                 >
                   既存のお客様
                 </Button>
                 <Button 
-                  className="block w-full bg-green-500 hover:bg-green-600" 
+                  className="block w-full bg-purple-500 hover:bg-purple-600 text-white" 
                   onClick={() => handleCustomerTypeSelect("lease")}
                   disabled={!hasAgreed}
                 >
@@ -624,7 +624,7 @@ export default function BookingFlow() {
 
               <div className="mt-8 w-full">
                 <Button 
-                  className="block w-full bg-gray-500 hover:bg-gray-600" 
+                  className="block w-full bg-gray-500 hover:bg-gray-600 text-white" 
                   onClick={() => setShowPasswordModal(true)}
                 >
                   港南自動車用
