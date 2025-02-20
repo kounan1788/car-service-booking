@@ -1,29 +1,8 @@
 import { google } from 'googleapis';
 import { NextResponse } from 'next/server';
 import { ServiceType } from '@/app/config/services';
-import { parseISO, format } from 'date-fns';
 
-const SERVICE_CONFIG = {
-  '車検': {
-    duration: 510, // 8時間30分 (9:00-17:30)
-  },
-  'オイル交換': {
-    duration: 30,
-  },
-  '12ヵ月点検': {
-    duration: 90,
-  },
-  '6ヵ月点検(貨物車)': {
-    duration: 90,
-  },
-  'スケジュール点検': {
-    duration: 60,
-  },
-  'タイヤ交換': {
-    duration: 30,
-  }
-} as const;
-
+// サービスごとの色設定
 const SERVICE_COLORS = {
   '車検': '11',         // 赤
   'オイル交換': '5',    // 黄
@@ -34,9 +13,24 @@ const SERVICE_COLORS = {
   'タイヤ交換': '6'     // オレンジ
 } as const;
 
+// サービスごとの作業時間（分）
+const SERVICE_DURATIONS = {
+  '車検': 60,
+  '12ヵ月点検': 90,
+  '6ヵ月点検(貨物車)': 90,
+  'スケジュール点検': 60,
+  '一般整備': 60,
+  'オイル交換': 30,
+  'タイヤ交換': 30
+} as const;
+
 export async function POST(request: Request) {
   try {
     const data = await request.json();
+    const isAdminBooking = 'repairDetails' in data;
+    const serviceType = isAdminBooking ? data.serviceType : data.service;
+
+    // カレンダーAPIの初期化
     const calendar = google.calendar({
       version: 'v3',
       auth: new google.auth.JWT(
@@ -47,56 +41,29 @@ export async function POST(request: Request) {
       )
     });
 
-    // 日本時間で予約時間を設定
+    // 予約時間の設定
     const [hour, minute] = data.selectedTime.split(':');
     const startTime = new Date(data.selectedDate);
     startTime.setHours(parseInt(hour), parseInt(minute), 0, 0);
     
+    // JST調整
     const offset = startTime.getTimezoneOffset() * 60 * 1000;
     const jstStartTime = new Date(startTime.getTime() - offset + (15 * 60 * 60 * 1000));
     
-    // 管理者予約かどうかを判定
-    const isAdminBooking = 'repairDetails' in data;
-
-    // 作業時間の設定
-    const getDuration = (serviceType: string) => {
-      switch (serviceType) {
-        case '車検':
-          return 60;
-        case '12ヵ月点検':
-          return 90;
-        case '6ヵ月点検(貨物車)':
-          return 90;
-        case 'スケジュール点検':
-          return 60;
-        case '一般整備':
-          return 60;
-        case 'オイル交換':
-          return 30;
-        case 'タイヤ交換':
-          return 30;
-        default:
-          return 60;
-      }
-    };
-
-    const duration = isAdminBooking 
-      ? getDuration(data.serviceType)
-      : getDuration(data.service);
-
+    // 終了時間の計算
+    const duration = SERVICE_DURATIONS[serviceType as keyof typeof SERVICE_DURATIONS] || 60;
     const jstEndTime = new Date(jstStartTime.getTime() + (duration * 60 * 1000));
 
+    // イベントの作成
     const event = {
-      summary: isAdminBooking 
-        ? `【未確認】${data.customerName} - ${data.serviceType}`
-        : `【未確認】${data.service} - ${data.companyName || data.fullName}`,
+      summary: `【未確認】${isAdminBooking ? data.customerName : (data.companyName || data.fullName)} - ${serviceType}`,
       description: isAdminBooking 
         ? `
           【お客様情報】
           お客様名: ${data.customerName}
           登録番号: ${data.registrationNumber}
-          整備メニュー: ${data.serviceType}
-          修理内容: ${data.repairDetails}
+          整備メニュー: ${serviceType}
+          修理内容: ${data.repairDetails || ''}
           納車希望日: ${data.deliveryDate}
           来店/引取: ${data.visitType}
           代車: ${data.needsRentalCar ? `必要\n${data.rentalCarDetails ? `代車詳細: ${data.rentalCarDetails}` : ''}` : '不要'}
@@ -112,24 +79,17 @@ export async function POST(request: Request) {
           ${data.registrationNumber ? `登録番号: ${data.registrationNumber}` : ''}
           
           【予約内容】
-          サービス: ${data.service}
+          サービス: ${serviceType}
           作業時間: ${duration}分
           ${data.notes ? `備考: ${data.notes}` : ''}
           ${data.concerns ? `気になる点: ${data.concerns}` : ''}
         `.trim(),
-      start: {
-        dateTime: jstStartTime.toISOString(),
-        timeZone: 'Asia/Tokyo',
-      },
-      end: {
-        dateTime: jstEndTime.toISOString(),
-        timeZone: 'Asia/Tokyo',
-      },
-      colorId: isAdminBooking 
-        ? SERVICE_COLORS[data.serviceType as ServiceType] 
-        : SERVICE_COLORS[data.service as ServiceType]
+      start: { dateTime: jstStartTime.toISOString(), timeZone: 'Asia/Tokyo' },
+      end: { dateTime: jstEndTime.toISOString(), timeZone: 'Asia/Tokyo' },
+      colorId: SERVICE_COLORS[serviceType as ServiceType]
     };
 
+    // カレンダーに予約を追加
     await calendar.events.insert({
       calendarId: process.env.GOOGLE_CALENDAR_ID,
       requestBody: event,
