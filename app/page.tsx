@@ -598,28 +598,31 @@ export default function BookingFlow() {
               </div>
 
               <h2 className="text-xl font-bold mb-4">お客様タイプを選択</h2>
-              <div className="space-y-4">
+              <div className="space-y-4 w-full">
                 <Button 
-                  className="block w-full bg-blue-500 hover:bg-blue-600" 
+                  className="block w-full bg-green-500 hover:bg-green-600" 
                   onClick={() => handleCustomerTypeSelect("new")}
+                  disabled={!hasAgreed}
                 >
                   新規のお客様
                 </Button>
                 <Button 
-                  className="block w-full bg-blue-500 hover:bg-blue-600" 
+                  className="block w-full bg-green-500 hover:bg-green-600" 
                   onClick={() => handleCustomerTypeSelect("existing")}
+                  disabled={!hasAgreed}
                 >
                   既存のお客様
                 </Button>
                 <Button 
-                  className="block w-full bg-blue-500 hover:bg-blue-600" 
+                  className="block w-full bg-green-500 hover:bg-green-600" 
                   onClick={() => handleCustomerTypeSelect("lease")}
+                  disabled={!hasAgreed}
                 >
                   リースのお客様
                 </Button>
               </div>
 
-              <div className="mt-8 w-full">  {/* 間隔を空けて配置 */}
+              <div className="mt-8 w-full">
                 <Button 
                   className="block w-full bg-gray-500 hover:bg-gray-600" 
                   onClick={() => setShowPasswordModal(true)}
