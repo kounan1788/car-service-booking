@@ -55,12 +55,36 @@ export async function POST(request: Request) {
     const offset = startTime.getTimezoneOffset() * 60 * 1000;
     const jstStartTime = new Date(startTime.getTime() - offset + (15 * 60 * 60 * 1000));
     
-    // 作業時間を1時間に設定
-    const duration = 60;
-    const jstEndTime = new Date(jstStartTime.getTime() + (duration * 60 * 1000));
-
     // 管理者予約かどうかを判定
     const isAdminBooking = 'repairDetails' in data;
+
+    // 作業時間の設定
+    const getDuration = (serviceType: string) => {
+      switch (serviceType) {
+        case '車検':
+          return 60;
+        case '12ヵ月点検':
+          return 90;
+        case '6ヵ月点検(貨物車)':
+          return 90;
+        case 'スケジュール点検':
+          return 60;
+        case '一般整備':
+          return 60;
+        case 'オイル交換':
+          return 30;
+        case 'タイヤ交換':
+          return 30;
+        default:
+          return 60;
+      }
+    };
+
+    const duration = isAdminBooking 
+      ? getDuration(data.serviceType)
+      : getDuration(data.service);
+
+    const jstEndTime = new Date(jstStartTime.getTime() + (duration * 60 * 1000));
 
     const event = {
       summary: isAdminBooking 
