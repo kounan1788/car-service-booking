@@ -547,6 +547,26 @@ export default function BookingFlow() {
     selectedTime: "",
   });
 
+  // 顧客タイプ選択時に管理者モードをリセット
+  const handleCustomerTypeSelect = (type: "new" | "existing" | "lease") => {
+    setCustomerType(type);
+    setIsAdminMode(false);  // 管理者モードをリセット
+    setAdminFormData({      // 管理者フォームデータもリセット
+      customerName: "",
+      registrationNumber: "",
+      serviceType: "" as ServiceType,
+      repairDetails: "",
+      deliveryDate: "",
+      visitType: "来店",
+      needsRentalCar: false,
+      rentalCarDetails: "",
+      notes: "",
+      selectedDate: null,
+      selectedTime: "",
+    });
+    setStep(2);
+  };
+
   return (
     <div className="p-6 max-w-lg mx-auto">
       <h1 className="text-2xl font-bold text-center mb-6 text-blue-600">
@@ -577,28 +597,25 @@ export default function BookingFlow() {
                 </div>
               </div>
 
-              <h2 className="text-xl font-bold mb-4">お客様区分を選択</h2>
-              <div className="space-y-4 w-full">
+              <h2 className="text-xl font-bold mb-4">お客様タイプを選択</h2>
+              <div className="space-y-4">
                 <Button 
                   className="block w-full bg-blue-500 hover:bg-blue-600" 
-                  onClick={() => { setCustomerType("new"); setStep(2); }}
-                  disabled={!hasAgreed}
+                  onClick={() => handleCustomerTypeSelect("new")}
                 >
-                  新規客様
+                  新規のお客様
                 </Button>
                 <Button 
-                  className="block w-full bg-green-500 hover:bg-green-600" 
-                  onClick={() => { setCustomerType("existing"); setStep(2); }}
-                  disabled={!hasAgreed}
+                  className="block w-full bg-blue-500 hover:bg-blue-600" 
+                  onClick={() => handleCustomerTypeSelect("existing")}
                 >
-                  既存客様
+                  既存のお客様
                 </Button>
                 <Button 
-                  className="block w-full bg-purple-500 hover:bg-purple-600" 
-                  onClick={() => { setCustomerType("lease"); setStep(2); }}
-                  disabled={!hasAgreed}
+                  className="block w-full bg-blue-500 hover:bg-blue-600" 
+                  onClick={() => handleCustomerTypeSelect("lease")}
                 >
-                  リース客様
+                  リースのお客様
                 </Button>
               </div>
 
