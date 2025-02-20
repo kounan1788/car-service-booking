@@ -63,13 +63,14 @@ export async function POST(request: Request) {
 
     const event = {
       summary: isAdminBooking 
-        ? `【未確認】${data.customerName} - ${data.repairDetails}`
+        ? `【未確認】${data.customerName} - ${data.serviceType}`
         : `【未確認】${data.service} - ${data.companyName || data.fullName}`,
       description: isAdminBooking 
         ? `
           【お客様情報】
           お客様名: ${data.customerName}
           登録番号: ${data.registrationNumber}
+          整備メニュー: ${data.serviceType}
           修理内容: ${data.repairDetails}
           納車希望日: ${data.deliveryDate}
           来店/引取: ${data.visitType}
@@ -99,7 +100,9 @@ export async function POST(request: Request) {
         dateTime: jstEndTime.toISOString(),
         timeZone: 'Asia/Tokyo',
       },
-      colorId: isAdminBooking ? '1' : SERVICE_COLORS[data.service as ServiceType]
+      colorId: isAdminBooking 
+        ? SERVICE_COLORS[data.serviceType as ServiceType] 
+        : SERVICE_COLORS[data.service as ServiceType]
     };
 
     await calendar.events.insert({

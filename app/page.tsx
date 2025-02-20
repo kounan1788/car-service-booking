@@ -38,6 +38,7 @@ interface ParsedEvent {
 interface AdminReservation {
   customerName: string;
   registrationNumber: string;
+  serviceType: ServiceType;
   repairDetails: string;
   deliveryDate: string;
   visitType: "来店" | "引取";
@@ -470,6 +471,7 @@ export default function BookingFlow() {
   interface AdminReservation {
     customerName: string;
     registrationNumber: string;
+    serviceType: ServiceType;
     repairDetails: string;
     deliveryDate: string;
     visitType: "来店" | "引取";
@@ -534,6 +536,7 @@ export default function BookingFlow() {
   const [adminFormData, setAdminFormData] = useState<AdminReservation>({
     customerName: "",
     registrationNumber: "",
+    serviceType: "車検",
     repairDetails: "",
     deliveryDate: "",
     visitType: "来店",
@@ -765,6 +768,22 @@ export default function BookingFlow() {
                 className="block w-full p-2 mb-2 border"
                 onChange={(e) => setAdminFormData({ ...adminFormData, registrationNumber: e.target.value })}
               />
+              <select
+                className="block w-full p-2 mb-2 border"
+                value={adminFormData.serviceType}
+                onChange={(e) => setAdminFormData({ 
+                  ...adminFormData, 
+                  serviceType: e.target.value as ServiceType 
+                })}
+              >
+                <option value="">整備メニューを選択 *</option>
+                <option value="車検">車検</option>
+                <option value="12ヵ月点検">12ヵ月点検</option>
+                <option value="6ヵ月点検(貨物車)">6ヵ月点検(貨物車)</option>
+                <option value="スケジュール点検">スケジュール点検</option>
+                <option value="オイル交換">オイル交換</option>
+                <option value="タイヤ交換">タイヤ交換</option>
+              </select>
               <textarea 
                 placeholder="修理内容 *"
                 className="block w-full p-2 mb-2 border"
