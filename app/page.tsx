@@ -39,7 +39,7 @@ interface AdminReservation {
   customerName: string;
   registrationNumber: string;
   serviceType: ServiceType;
-  repairDetails: string;
+  repairDetails?: string;
   deliveryDate: string;
   visitType: "来店" | "引取";
   needsRentalCar: boolean;
@@ -472,7 +472,7 @@ export default function BookingFlow() {
     customerName: string;
     registrationNumber: string;
     serviceType: ServiceType;
-    repairDetails: string;
+    repairDetails?: string;
     deliveryDate: string;
     visitType: "来店" | "引取";
     needsRentalCar: boolean;
@@ -532,11 +532,11 @@ export default function BookingFlow() {
     </div>
   );
 
-  // 管理者用の状態を追加
+  // 管理者用の状態を修正
   const [adminFormData, setAdminFormData] = useState<AdminReservation>({
     customerName: "",
     registrationNumber: "",
-    serviceType: "車検",
+    serviceType: "" as ServiceType,  // デフォルト値を空に
     repairDetails: "",
     deliveryDate: "",
     visitType: "来店",
@@ -776,16 +776,17 @@ export default function BookingFlow() {
                   serviceType: e.target.value as ServiceType 
                 })}
               >
-                <option value="">整備メニューを選択 *</option>
+                <option value="" disabled>整備メニューを選択 *</option>
                 <option value="車検">車検</option>
                 <option value="12ヵ月点検">12ヵ月点検</option>
                 <option value="6ヵ月点検(貨物車)">6ヵ月点検(貨物車)</option>
                 <option value="スケジュール点検">スケジュール点検</option>
+                <option value="一般整備">一般整備</option>
                 <option value="オイル交換">オイル交換</option>
                 <option value="タイヤ交換">タイヤ交換</option>
               </select>
               <textarea 
-                placeholder="修理内容 *"
+                placeholder="修理内容（任意）"
                 className="block w-full p-2 mb-2 border"
                 onChange={(e) => setAdminFormData({ ...adminFormData, repairDetails: e.target.value })}
               />
@@ -848,7 +849,7 @@ export default function BookingFlow() {
                 </Button>
                 <Button 
                   onClick={() => setStep(4)}
-                  disabled={!adminFormData.customerName || !adminFormData.registrationNumber || !adminFormData.repairDetails || !adminFormData.deliveryDate}
+                  disabled={!adminFormData.customerName || !adminFormData.registrationNumber || !adminFormData.serviceType || !adminFormData.deliveryDate}
                 >
                   日時選択へ
                 </Button>
