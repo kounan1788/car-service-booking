@@ -24,6 +24,11 @@ export const SERVICE_CONFIG = {
     maxPerDay: null,
     requiresTimeSlot: true
   },
+  '一般整備': {
+    duration: 60,
+    maxPerDay: null,
+    requiresTimeSlot: true
+  },
   'タイヤ交換': {
     duration: 30,
     maxPerDay: null,
