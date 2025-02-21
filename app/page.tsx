@@ -386,19 +386,21 @@ export default function BookingFlow() {
     const endHour = hour + Math.floor((minute + duration) / 60);
     const endMinute = (minute + duration) % 60;
 
-    // 昼休憩時間（12:00-13:00）との重複チェック
-    // 12:00は予約可能、12:00を超えて13:00未満は予約不可
-    if (hour < 12 && endHour > 12 && endHour < 13) {
-      return false;
+    // 昼休憩時間との重複チェック
+    // 12:00丁度になる予約はOK、12:01以降にかかる予約はNG
+    if ((endHour === 12 && endMinute > 0) || endHour > 12) {
+      if (hour < 13) {  // 13時以降の予約は許可
+        return false;
+      }
     }
 
-    // 営業終了時間（平日17:30、土曜16:30）との重複チェック
+    // 営業終了時間との重複チェック
     const isSaturday = date.getDay() === 6;
     const maxEndHour = isSaturday ? 16 : 17;
     const maxEndMinute = 30;
 
-    // 終了時刻が営業時間を超える場合のみ予約不可
-    if (endHour > maxEndHour || (endHour === maxEndHour && endMinute > maxEndMinute)) {
+    // 終了時刻が16:30/17:30丁度はOK、それを超えるとNG
+    if (endHour > maxEndHour || (endHour === maxEndHour && endMinute > 30)) {
       return false;
     }
 
