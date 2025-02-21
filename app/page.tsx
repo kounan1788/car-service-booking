@@ -401,12 +401,9 @@ export default function BookingFlow() {
       { hour: 17, minute: 30 };
 
     // 作業終了時刻が営業終了時間を超えるかチェック
-    if (endHour === maxEndTime.hour) {
-      // 終了時刻が16:30/17:30丁度はOK、それを超えるとNG
-      if (endMinute > maxEndTime.minute) {
-        return false;
-      }
-    } else if (endHour > maxEndTime.hour) {
+    // 終了時刻が16:30/17:30丁度までOK、それを超えるとNG
+    if (endHour > maxEndTime.hour || 
+        (endHour === maxEndTime.hour && endMinute > maxEndTime.minute)) {
       return false;
     }
 
