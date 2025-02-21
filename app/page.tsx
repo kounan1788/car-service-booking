@@ -596,15 +596,23 @@ export default function BookingFlow() {
 
   return (
     <div className="p-6 max-w-lg mx-auto">
-      <h1 className="text-2xl font-bold text-center mb-6 text-blue-600">
+      <h1 className="text-3xl font-bold text-center mb-6 text-blue-600">
         港南自動車予約サイト
       </h1>
+
+      <div className="bg-yellow-100 p-4 rounded-lg mb-4 text-base">
+        <p className="text-red-600 font-bold leading-relaxed">
+          当サイトはご来店専用の予約サイトになります。<br />
+          引取・代車がご入用の際は、076-268-1788までお電話にてご予約下さい。<br />
+          予約の間違いがあった場合もお電話にてご連絡ください。
+        </p>
+      </div>
 
       <Card>
         <CardContent className="p-6">
           {step === 1 && (
             <div className="flex flex-col items-center w-full">
-              <div className="bg-yellow-100 p-4 rounded-lg mb-4 text-sm w-full">
+              <div className="bg-yellow-100 p-4 rounded-lg mb-4 text-base w-full">
                 <p className="text-red-600 font-bold leading-relaxed">
                   当サイトはご来店専用の予約サイトになります。<br />
                   引取・代車がご入用の際は、076-268-1788までお電話にてご予約下さい。<br />
@@ -627,13 +635,13 @@ export default function BookingFlow() {
 
               {hasAgreed && (
                 <>
-                  <h2 className="text-xl font-bold mb-4">お客様タイプを選択</h2>
+                  <h2 className="text-2xl font-bold mb-4">お客様タイプを選択</h2>
                   <div className="space-y-4 w-full">
                     <Button 
                       className="block w-full bg-blue-500 hover:bg-blue-600 text-white" 
                       onClick={() => handleCustomerTypeSelect("new")}
                     >
-                      新規のお客様
+                      初めてのお客様
                     </Button>
                     <Button 
                       className="block w-full bg-emerald-500 hover:bg-emerald-600 text-white" 
@@ -941,7 +949,10 @@ export default function BookingFlow() {
                       >
                         車検
                       </Button>
-                      <p className="text-base text-gray-700 mt-1 ml-2">作業時間は1日です。車両の納車は翌日になります。</p>
+                      <p className="text-base text-gray-700 mt-1 ml-2">
+                        作業時間は1日です。<br />
+                        車両の納車は基本的に翌日になります。
+                      </p>
                     </div>
 
                     <div>
@@ -951,7 +962,7 @@ export default function BookingFlow() {
                       >
                         12ヵ月点検
                       </Button>
-                      <p className="text-base text-gray-700 mt-1 ml-2">作業時間は約1時間30分です。</p>
+                      <p className="text-base text-gray-700 mt-1 ml-2">作業時間は約2時間です。</p>
                     </div>
 
                     <div>
@@ -1097,7 +1108,7 @@ export default function BookingFlow() {
               </div>
               {(isAdminMode ? adminFormData.selectedDate : formData.selectedDate) && (
                 <div>
-                  <h3 className="text-lg font-bold mb-2">時間を選択</h3>
+                  <h3 className="text-xl font-bold mb-2">時間を選択</h3>
                   <div className="grid grid-cols-3 md:grid-cols-4 gap-1 md:gap-2">
                     {generateTimeSlots(isAdminMode ? adminFormData.selectedDate! : formData.selectedDate!).map((time) => {
                       const isAvailable = isTimeSlotAvailable(

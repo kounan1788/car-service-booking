@@ -10,7 +10,7 @@ export const SERVICE_CONFIG = {
     requiresTimeSlot: true
   },
   '12ヵ月点検': {
-    duration: 90,
+    duration: 120,
     maxPerDay: 2,
     requiresTimeSlot: true
   },
