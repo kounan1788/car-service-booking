@@ -600,14 +600,6 @@ export default function BookingFlow() {
         港南自動車予約サイト
       </h1>
 
-      <div className="bg-yellow-100 p-4 rounded-lg mb-4 text-base">
-        <p className="text-red-600 font-bold leading-relaxed">
-          当サイトはご来店専用の予約サイトになります。<br />
-          引取・代車がご入用の際は、076-268-1788までお電話にてご予約下さい。<br />
-          予約の間違いがあった場合もお電話にてご連絡ください。
-        </p>
-      </div>
-
       <Card>
         <CardContent className="p-6">
           {step === 1 && (
