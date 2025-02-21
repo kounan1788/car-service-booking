@@ -378,7 +378,29 @@ export default function BookingFlow() {
   }, []);
 
   const isTimeSlotAvailable = (date: Date, timeSlot: string) => {
-    // 車検の場合は1日2件までの制限のみをチェック
+    const [hour, minute] = timeSlot.split(':').map(Number);
+    const serviceType = isAdminMode ? adminFormData.serviceType : formData.service;
+    const duration = SERVICE_CONFIG[serviceType as ServiceType]?.duration || 60;
+
+    // 作業終了予定時刻を計算
+    const endHour = hour + Math.floor((minute + duration) / 60);
+    const endMinute = (minute + duration) % 60;
+
+    // 昼休憩時間（12:00-13:00）との重複チェック
+    if ((hour < 12 && endHour >= 12) || (hour === 12)) {
+      return false;
+    }
+
+    // 営業終了時間（平日17:30、土曜16:30）との重複チェック
+    const isSaturday = date.getDay() === 6;
+    const maxEndHour = isSaturday ? 16 : 17;
+    const maxEndMinute = isSaturday ? 30 : 30;
+
+    if (endHour > maxEndHour || (endHour === maxEndHour && endMinute > maxEndMinute)) {
+      return false;
+    }
+
+    // 既存の予約との重複チェック
     if (formData.service === '車検') {
       const inspectionsForDay = existingEvents.filter(event => {
         const eventDate = new Date(event.start);
@@ -387,21 +409,20 @@ export default function BookingFlow() {
       return inspectionsForDay.length < 2;
     }
 
-    const config = SERVICE_CONFIG[formData.service as ServiceType];
+    const config = SERVICE_CONFIG[serviceType as ServiceType];
     if (!config?.requiresTimeSlot) return true;
 
-    const [hour, minute] = timeSlot.split(':');
     const slotStart = new Date(date);
-    slotStart.setHours(parseInt(hour), parseInt(minute), 0, 0);
+    slotStart.setHours(hour, minute, 0, 0);
     
     const slotEnd = new Date(slotStart);
-    slotEnd.setMinutes(slotStart.getMinutes() + config.duration);
+    slotEnd.setMinutes(slotStart.getMinutes() + duration);
 
     // その日のサービス予約数をチェック
     if (config.maxPerDay) {
       const servicesForDay = existingEvents.filter(event => {
         const eventDate = new Date(event.start);
-        return isSameDay(eventDate, date) && event.title?.includes(formData.service);
+        return isSameDay(eventDate, date) && event.title?.includes(serviceType);
       });
       if (servicesForDay.length >= config.maxPerDay) return false;
     }
@@ -412,7 +433,6 @@ export default function BookingFlow() {
       const eventStart = new Date(event.start);
       const eventEnd = new Date(event.end);
       
-      // 予約時間枠が重複していないかチェック
       return (
         (slotStart >= eventStart && slotStart < eventEnd) ||
         (slotEnd > eventStart && slotEnd <= eventEnd) ||
