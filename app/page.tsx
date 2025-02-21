@@ -386,15 +386,15 @@ export default function BookingFlow() {
     const endHour = hour + Math.floor((minute + duration) / 60);
     const endMinute = (minute + duration) % 60;
 
-    // 昼休憩時間（12:01-13:00）との重複チェック
-    if ((hour < 12 && endHour >= 12) || (hour === 12 && minute >= 1)) {
+    // 昼休憩時間（12:15-13:00）との重複チェック
+    if ((hour < 12 && endHour >= 12) || (hour === 12 && minute >= 15)) {
       return false;
     }
 
-    // 営業終了時間（平日17:31、土曜16:31）との重複チェック
+    // 営業終了時間（平日17:45、土曜16:45）との重複チェック
     const isSaturday = date.getDay() === 6;
     const maxEndHour = isSaturday ? 16 : 17;
-    const maxEndMinute = isSaturday ? 31 : 31;
+    const maxEndMinute = isSaturday ? 45 : 45;
 
     if (endHour > maxEndHour || (endHour === maxEndHour && endMinute > maxEndMinute)) {
       return false;
