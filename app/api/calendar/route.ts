@@ -16,7 +16,7 @@ const SERVICE_COLORS = {
 // サービスごとの作業時間（分）
 const SERVICE_DURATIONS = {
   '車検': 60,
-  '12ヵ月点検': 90,
+  '12ヵ月点検': 120,  // 90分から120分に変更
   '6ヵ月点検(貨物車)': 90,
   'スケジュール点検': 60,
   '一般整備': 60,
@@ -68,6 +68,7 @@ export async function POST(request: Request) {
           来店/引取: ${data.visitType}
           代車: ${data.needsRentalCar ? `必要\n${data.rentalCarDetails ? `代車詳細: ${data.rentalCarDetails}` : ''}` : '不要'}
           ${data.notes ? `備考: ${data.notes}` : ''}
+          作業時間: ${duration}分  
         `.trim()
         : `
           【お客様情報】
