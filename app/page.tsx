@@ -396,11 +396,17 @@ export default function BookingFlow() {
 
     // 営業終了時間との重複チェック
     const isSaturday = date.getDay() === 6;
-    const maxEndHour = isSaturday ? 16 : 17;
-    const maxEndMinute = 30;
+    const maxEndTime = isSaturday ? 
+      { hour: 16, minute: 30 } : 
+      { hour: 17, minute: 30 };
 
-    // 終了時刻が16:30/17:30丁度はOK、それを超えるとNG
-    if (endHour > maxEndHour || (endHour === maxEndHour && endMinute > 30)) {
+    // 作業終了時刻が営業終了時間を超えるかチェック
+    if (endHour === maxEndTime.hour) {
+      // 終了時刻が16:30/17:30丁度はOK、それを超えるとNG
+      if (endMinute > maxEndTime.minute) {
+        return false;
+      }
+    } else if (endHour > maxEndTime.hour) {
       return false;
     }
 
