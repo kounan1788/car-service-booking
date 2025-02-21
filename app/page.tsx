@@ -578,9 +578,10 @@ export default function BookingFlow() {
           {step === 1 && (
             <div className="flex flex-col items-center w-full">
               <div className="bg-yellow-100 p-4 rounded-lg mb-4 text-sm w-full">
-                <p className="text-red-600 font-bold">
-                  当サイトはご来店専用の予約サイトになります。
-                  引取・代車がご入用の際は、076-268-1788までお電話にてご予約下さい。
+                <p className="text-red-600 font-bold leading-relaxed">
+                  当サイトはご来店専用の予約サイトになります。<br />
+                  引取・代車がご入用の際は、076-268-1788までお電話にてご予約下さい。<br />
+                  予約の間違いがあった場合もお電話にてご連絡ください。
                 </p>
                 
                 <div className="mt-4 flex items-center">
@@ -597,39 +598,40 @@ export default function BookingFlow() {
                 </div>
               </div>
 
-              <h2 className="text-xl font-bold mb-4">お客様タイプを選択</h2>
-              <div className="space-y-4 w-full">
-                <Button 
-                  className="block w-full bg-blue-500 hover:bg-blue-600 text-white" 
-                  onClick={() => handleCustomerTypeSelect("new")}
-                  disabled={!hasAgreed}
-                >
-                  新規のお客様
-                </Button>
-                <Button 
-                  className="block w-full bg-emerald-500 hover:bg-emerald-600 text-white" 
-                  onClick={() => handleCustomerTypeSelect("existing")}
-                  disabled={!hasAgreed}
-                >
-                  既存のお客様
-                </Button>
-                <Button 
-                  className="block w-full bg-purple-500 hover:bg-purple-600 text-white" 
-                  onClick={() => handleCustomerTypeSelect("lease")}
-                  disabled={!hasAgreed}
-                >
-                  リースのお客様
-                </Button>
-              </div>
+              {hasAgreed && (
+                <>
+                  <h2 className="text-xl font-bold mb-4">お客様タイプを選択</h2>
+                  <div className="space-y-4 w-full">
+                    <Button 
+                      className="block w-full bg-blue-500 hover:bg-blue-600 text-white" 
+                      onClick={() => handleCustomerTypeSelect("new")}
+                    >
+                      新規のお客様
+                    </Button>
+                    <Button 
+                      className="block w-full bg-emerald-500 hover:bg-emerald-600 text-white" 
+                      onClick={() => handleCustomerTypeSelect("existing")}
+                    >
+                      既存のお客様
+                    </Button>
+                    <Button 
+                      className="block w-full bg-purple-500 hover:bg-purple-600 text-white" 
+                      onClick={() => handleCustomerTypeSelect("lease")}
+                    >
+                      リースのお客様
+                    </Button>
+                  </div>
 
-              <div className="mt-8 w-full">
-                <Button 
-                  className="block w-full bg-gray-500 hover:bg-gray-600 text-white" 
-                  onClick={() => setShowPasswordModal(true)}
-                >
-                  港南自動車用
-                </Button>
-              </div>
+                  <div className="mt-8 w-full">
+                    <Button 
+                      className="block w-full bg-gray-500 hover:bg-gray-600 text-white" 
+                      onClick={() => setShowPasswordModal(true)}
+                    >
+                      港南自動車用
+                    </Button>
+                  </div>
+                </>
+              )}
               
               {showPasswordModal && <PasswordModal />}
             </div>
