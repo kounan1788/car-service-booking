@@ -6,6 +6,7 @@ import { ja } from 'date-fns/locale';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { SERVICE_CONFIG, type ServiceType } from '@/app/config/services';
+import { RESTRICTION_RULES, type BookingRequest } from './config/restrictions';
 
 interface Reservation {
   fullName: string;
@@ -18,10 +19,11 @@ interface Reservation {
   registrationNumber: string;
   companyName: string;
   notes: string;
-  service: string;
+  service: keyof typeof SERVICE_CONFIG;
   selectedDate: Date | null;
   selectedTime: string;
   concerns?: string;
+  visitType: "来店" | "引取";
 }
 
 interface ParsedReservation extends Omit<Reservation, 'selectedDate'> {
@@ -38,7 +40,7 @@ interface ParsedEvent {
 interface AdminReservation {
   customerName: string;
   registrationNumber: string;
-  serviceType: ServiceType;
+  serviceType: keyof typeof SERVICE_CONFIG;
   repairDetails?: string;
   deliveryDate: string;
   visitType: "来店" | "引取";
@@ -61,20 +63,22 @@ const addToGoogleCalendar = (reservation: Reservation) => {
   const startTime = `${date}T${hour.padStart(2, '0')}${minute}00+0900`;
   
   // サービスごとの作業時間を取得
-  let duration = 60; // デフォルトは60分
+  let duration = 60;
   if (reservation.service === '車検') {
-    duration = 60; // 車検は1時間枠
+    duration = 60;
   } else {
     const config = SERVICE_CONFIG[reservation.service as ServiceType];
     duration = config?.duration || 60;
   }
   
-  // 終了時刻を計算（日本時間で）
   const endDate = new Date(reservation.selectedDate);
   endDate.setHours(parseInt(hour), parseInt(minute) + duration, 0);
   const endTime = format(endDate, "yyyyMMdd'T'HHmmss'+0900'");
   
-  const text = `${reservation.service} - ${reservation.companyName || reservation.fullName}`;
+  // 引取の場合はタイトルに(引取)を追加
+  const visitTypeText = reservation.visitType === '引取' ? ' (引取)' : '';
+  const text = `${reservation.service}${visitTypeText} - ${reservation.companyName || reservation.fullName}`;
+  
   const details = `
     【お客様情報】
     ${reservation.companyName ? `会社名: ${reservation.companyName}` : `お名前: ${reservation.fullName}`}
@@ -250,10 +254,11 @@ export default function BookingFlow() {
     registrationNumber: "",
     companyName: "",
     notes: "",
-    service: "",
+    service: "一般整備" as ServiceType,
     selectedDate: null,
     selectedTime: "",
     concerns: "",
+    visitType: "来店",
   });
 
   const [confirmedReservations, setConfirmedReservations] = useState<ConfirmedReservation[]>([]);
@@ -311,9 +316,13 @@ export default function BookingFlow() {
       const reservationData = isAdminMode ? {
         ...adminFormData,
         selectedDate: adminFormData.selectedDate?.toISOString(),
+        // 管理者フォームの場合のタイトル生成
+        title: `${adminFormData.serviceType}${adminFormData.visitType === '引取' ? ' (引取)' : ''} - ${adminFormData.customerName}`
       } : {
         ...formData,
         selectedDate: formData.selectedDate?.toISOString(),
+        // 一般予約フォームの場合のタイトル生成
+        title: `${formData.service}${formData.visitType === '引取' ? ' (引取)' : ''} - ${formData.companyName || formData.fullName}`
       };
 
       const response = await fetch('/api/calendar', {
@@ -358,28 +367,60 @@ export default function BookingFlow() {
   }, []);
 
   useEffect(() => {
-    const fetchEvents = async () => {
+    const fetchData = async () => {
       try {
         const response = await fetch('/api/calendar/availability');
-        if (response.ok) {
-          const events: ParsedEvent[] = await response.json();
-          setExistingEvents(events);
+        const events = await response.json();
+        setExistingEvents(events);
+
+        // サービス制限を読み込む
+        const savedLimits = localStorage.getItem('serviceLimits');
+        if (savedLimits) {
+          setServiceLimits(JSON.parse(savedLimits));
         }
       } catch (error) {
-        if (error instanceof Error) {
-          console.error('Error fetching events:', error.message);
-        }
+        console.error('Error:', error);
       }
     };
 
-    fetchEvents();
-    const interval = setInterval(fetchEvents, 10000);
+    fetchData();
+    // 10秒ごとに更新
+    const interval = setInterval(fetchData, 10000);
     return () => clearInterval(interval);
   }, []);
 
+  // サービス制限を保持するstate
+  const [serviceLimits, setServiceLimits] = useState<{[key: string]: number | null}>({});
+
+  // 時間スロットの利用可能性をチェックする関数を修正
   const isTimeSlotAvailable = (date: Date, timeSlot: string) => {
-    const [hour, minute] = timeSlot.split(':').map(Number);
     const serviceType = isAdminMode ? adminFormData.serviceType : formData.service;
+    
+    // サービスタイプが未選択の場合のハンドリング
+    if (!serviceType) return false;
+    
+    // 型アサーションを使用
+    const config = SERVICE_CONFIG[serviceType as keyof typeof SERVICE_CONFIG];
+    if (!config) return false;
+    
+    // 制限条件のチェック
+    const bookingRequest: BookingRequest = {
+      service: serviceType,
+      selectedDate: date,
+      selectedTime: timeSlot,
+      visitType: isAdminMode ? adminFormData.visitType : "来店",
+      userType: isAdminMode ? "admin" : customerType || "new"
+    };
+
+    // 制限条件に該当する場合は予約不可
+    for (const rule of RESTRICTION_RULES) {
+      if (rule.enabled && rule.condition(existingEvents, bookingRequest)) {
+        return false;
+      }
+    }
+
+    // 以下、既存の時間チェックロジック
+    const [hour, minute] = timeSlot.split(':').map(Number);
     const duration = SERVICE_CONFIG[serviceType as ServiceType]?.duration || 60;
 
     // 作業終了予定時刻を計算
@@ -387,9 +428,8 @@ export default function BookingFlow() {
     const endMinute = (minute + duration) % 60;
 
     // 昼休憩時間との重複チェック
-    // 12:00丁度になる予約はOK、12:01以降にかかる予約はNG
     if ((endHour === 12 && endMinute > 0) || endHour > 12) {
-      if (hour < 13) {  // 13時以降の予約は許可
+      if (hour < 13) {
         return false;
       }
     }
@@ -400,46 +440,23 @@ export default function BookingFlow() {
       { hour: 16, minute: 30 } : 
       { hour: 17, minute: 30 };
 
-    // 作業終了時刻が営業終了時間を超えるかチェック
-    // 終了時刻が16:30/17:30丁度までOK、それを超えるとNG
     if (endHour > maxEndTime.hour || 
         (endHour === maxEndTime.hour && endMinute > maxEndTime.minute)) {
       return false;
     }
 
     // 既存の予約との重複チェック
-    if (formData.service === '車検') {
-      const inspectionsForDay = existingEvents.filter(event => {
-        const eventDate = new Date(event.start);
-        return isSameDay(eventDate, date) && event.title?.includes('車検');
-      });
-      return inspectionsForDay.length < 2;
-    }
-
-    const config = SERVICE_CONFIG[serviceType as ServiceType];
-    if (!config?.requiresTimeSlot) return true;
-
-    const slotStart = new Date(date);
-    slotStart.setHours(hour, minute, 0, 0);
-    
-    const slotEnd = new Date(slotStart);
-    slotEnd.setMinutes(slotStart.getMinutes() + duration);
-
-    // その日のサービス予約数をチェック
-    if (config.maxPerDay) {
-      const servicesForDay = existingEvents.filter(event => {
-        const eventDate = new Date(event.start);
-        return isSameDay(eventDate, date) && event.title?.includes(serviceType);
-      });
-      if (servicesForDay.length >= config.maxPerDay) return false;
-    }
-
-    // 時間枠の重複チェック
     return !existingEvents.some(event => {
       if (!event.start || !event.end) return false;
       const eventStart = new Date(event.start);
       const eventEnd = new Date(event.end);
       
+      const slotStart = new Date(date);
+      slotStart.setHours(hour, minute, 0, 0);
+      
+      const slotEnd = new Date(slotStart);
+      slotEnd.setMinutes(slotStart.getMinutes() + duration);
+
       return (
         (slotStart >= eventStart && slotStart < eventEnd) ||
         (slotEnd > eventStart && slotEnd <= eventEnd) ||
@@ -498,7 +515,7 @@ export default function BookingFlow() {
   interface AdminReservation {
     customerName: string;
     registrationNumber: string;
-    serviceType: ServiceType;
+    serviceType: keyof typeof SERVICE_CONFIG;
     repairDetails?: string;
     deliveryDate: string;
     visitType: "来店" | "引取";
@@ -563,7 +580,7 @@ export default function BookingFlow() {
   const [adminFormData, setAdminFormData] = useState<AdminReservation>({
     customerName: "",
     registrationNumber: "",
-    serviceType: "" as ServiceType,  // デフォルト値を空に
+    serviceType: "" as keyof typeof SERVICE_CONFIG,  // デフォルト値を空に
     repairDetails: "",
     deliveryDate: "",
     visitType: "来店",
@@ -581,7 +598,7 @@ export default function BookingFlow() {
     setAdminFormData({      // 管理者フォームデータもリセット
       customerName: "",
       registrationNumber: "",
-      serviceType: "" as ServiceType,
+      serviceType: "" as keyof typeof SERVICE_CONFIG,
       repairDetails: "",
       deliveryDate: "",
       visitType: "来店",
@@ -595,7 +612,7 @@ export default function BookingFlow() {
   };
 
   return (
-    <div className="p-6 max-w-lg mx-auto">
+    <div className="p-6 max-w-lg mx-auto relative">
       <h1 className="text-3xl font-bold text-center mb-6 text-blue-600">
         港南自動車予約サイト
       </h1>
@@ -822,10 +839,13 @@ export default function BookingFlow() {
                 value={adminFormData.serviceType}
                 onChange={(e) => setAdminFormData({ 
                   ...adminFormData, 
-                  serviceType: e.target.value as ServiceType 
+                  serviceType: e.target.value as keyof typeof SERVICE_CONFIG,
+                  // 引取が選択された場合は自動的に visitType を '引取' に設定
+                  visitType: e.target.value === '引取' ? '引取' : adminFormData.visitType
                 })}
               >
                 <option value="" disabled>整備メニューを選択 *</option>
+                <option value="引取">引取</option>
                 <option value="車検">車検</option>
                 <option value="12ヵ月点検">12ヵ月点検</option>
                 <option value="6ヵ月点検(貨物車)">6ヵ月点検(貨物車)</option>
@@ -834,6 +854,22 @@ export default function BookingFlow() {
                 <option value="オイル交換">オイル交換</option>
                 <option value="タイヤ交換">タイヤ交換</option>
               </select>
+              {/* 引取選択時は来店/引取の選択を非表示にする */}
+              {adminFormData.serviceType !== '引取' && (
+                <div className="mb-2">
+                  <select 
+                    className="block w-full p-2 border"
+                    value={adminFormData.visitType}
+                    onChange={(e) => setAdminFormData({ 
+                      ...adminFormData, 
+                      visitType: e.target.value as "来店" | "引取"
+                    })}
+                  >
+                    <option value="来店">来店</option>
+                    <option value="引取">引取</option>
+                  </select>
+                </div>
+              )}
               <textarea 
                 placeholder="修理内容（任意）"
                 className="block w-full p-2 mb-2 border"
@@ -848,18 +884,6 @@ export default function BookingFlow() {
                   className="block w-full p-2 border"
                   onChange={(e) => setAdminFormData({ ...adminFormData, deliveryDate: e.target.value })}
                 />
-              </div>
-              <div className="mb-2">
-                <select 
-                  className="block w-full p-2 border"
-                  onChange={(e) => setAdminFormData({ 
-                    ...adminFormData, 
-                    visitType: e.target.value as "来店" | "引取"
-                  })}
-                >
-                  <option value="来店">来店</option>
-                  <option value="引取">引取</option>
-                </select>
               </div>
               <div className="mb-2">
                 <label className="flex items-center">

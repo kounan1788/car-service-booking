@@ -10,7 +10,8 @@ const SERVICE_COLORS = {
   '6ヵ月点検(貨物車)': '9', // 青
   'スケジュール点検': '7',  // 緑
   '一般整備': '8',      // 緑
-  'タイヤ交換': '6'     // オレンジ
+  'タイヤ交換': '6',    // オレンジ
+  '引取': '10'          // 緑
 } as const;
 
 // サービスごとの作業時間（分）
@@ -56,7 +57,7 @@ export async function POST(request: Request) {
 
     // イベントの作成
     const event = {
-      summary: `【未確認】${isAdminBooking ? data.customerName : (data.companyName || data.fullName)} - ${serviceType}`,
+      summary: `【未確認】${isAdminBooking ? data.customerName : (data.companyName || data.fullName)} - ${serviceType}${data.visitType === '引取' ? ' (引取)' : ''}`,
       description: isAdminBooking 
         ? `
           【お客様情報】
