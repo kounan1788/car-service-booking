@@ -78,15 +78,40 @@ export const RESTRICTION_RULES: RestrictionRule[] = [
     description: '車検と12ヵ月点検の制限',
     enabled: true,
     condition: (events, newEvent) => {
-      const inspectionCount = events.filter(event => 
-        event.title?.includes('車検')
-      ).length;
-      if (inspectionCount >= 2 && newEvent.service === '12ヵ月点検') {
-        return true;
+      const selectedDate = new Date(newEvent.selectedDate);
+      
+      // 同じ日の車検予約をカウント
+      const todayInspections = events.filter(event => {
+        const eventDate = new Date(event.start);
+        return (
+          eventDate.getFullYear() === selectedDate.getFullYear() &&
+          eventDate.getMonth() === selectedDate.getMonth() &&
+          eventDate.getDate() === selectedDate.getDate() &&
+          event.title?.includes('車検')
+        );
+      });
+
+      // 同じ日の12ヵ月点検予約をカウント
+      const today12MonthInspections = events.filter(event => {
+        const eventDate = new Date(event.start);
+        return (
+          eventDate.getFullYear() === selectedDate.getFullYear() &&
+          eventDate.getMonth() === selectedDate.getMonth() &&
+          eventDate.getDate() === selectedDate.getDate() &&
+          event.title?.includes('12ヵ月点検')
+        );
+      });
+
+      // デバッグ用ログ
+      console.log('Selected Date:', format(selectedDate, 'yyyy-MM-dd'));
+      console.log('Today\'s Inspections:', todayInspections.length);
+      console.log('Today\'s 12-Month Inspections:', today12MonthInspections.length);
+
+      // 車検が2件以上ある場合、12ヵ月点検は1件まで
+      if (todayInspections.length >= 2 && newEvent.service === '12ヵ月点検') {
+        return today12MonthInspections.length >= 1;
       }
-      if (inspectionCount >= 3 && newEvent.service === '12ヵ月点検') {
-        return true;
-      }
+
       return false;
     },
     errorMessage: '申し訳ありません。車検予約数により12ヵ月点検は予約できません。'
