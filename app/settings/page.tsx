@@ -11,7 +11,7 @@ interface ServiceLimit {
 
 export default function SettingsPage() {
   const [limits, setLimits] = useState<ServiceLimit[]>([
-    { service: '車検', limit: 2 },
+    { service: '車検', limit: 3 },
     { service: '12ヵ月点検', limit: 2 },
     { service: '6ヵ月点検(貨物車)', limit: 2 },
     { service: 'スケジュール点検', limit: null },

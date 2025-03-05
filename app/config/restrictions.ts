@@ -30,7 +30,11 @@ export const RESTRICTION_RULES: RestrictionRule[] = [
     description: '引取予約アクセス制御',
     enabled: true,
     condition: (events, newEvent) => {
-      return newEvent.visitType === '引取' && newEvent.userType !== 'admin';
+      // 管理者は制限を無視
+      if (newEvent.userType === 'admin') return false;
+      
+      // 引取予約は管理者以外不可
+      return newEvent.visitType === '引取';
     },
     errorMessage: '引取サービスは管理者フォームからのみ予約可能です。'
   },
@@ -39,6 +43,9 @@ export const RESTRICTION_RULES: RestrictionRule[] = [
     description: '引取予約制限',
     enabled: true,
     condition: (events, newEvent) => {
+      // 管理者は制限を無視
+      if (newEvent.userType === 'admin') return false;
+
       const selectedDate = new Date(newEvent.selectedDate);
       
       // 同じ日の引取予約をカウント
@@ -50,7 +57,8 @@ export const RESTRICTION_RULES: RestrictionRule[] = [
           eventDate.getDate() === selectedDate.getDate() &&
           (event.title?.includes('引取') || 
            event.title?.startsWith('引取') || 
-           event.title?.endsWith('(引取)'))
+           event.title?.endsWith('(引取)') ||
+           event.title?.startsWith('(引取)'))
         );
       });
 
@@ -59,17 +67,8 @@ export const RESTRICTION_RULES: RestrictionRule[] = [
       console.log('Today\'s Pickup Count:', todayPickups.length);
       console.log('Today\'s Pickups:', todayPickups);
 
-      // 引取予約が3件以上ある場合は、すべての新規予約をブロック
-      if (todayPickups.length >= 3) {
-        return true; // すべての予約をブロック
-      }
-
-      // 新規予約が引取の場合は、現在の引取数が3未満なら許可
-      if (newEvent.service === '引取' || newEvent.visitType === '引取') {
-        return todayPickups.length >= 3;
-      }
-
-      return false; // その他の予約は許可
+      // 3件以上の場合のみブロック
+      return todayPickups.length >= 4;
     },
     errorMessage: 'この日は引取予約が上限に達しているため、新規予約を受け付けられません。'
   },
@@ -78,6 +77,9 @@ export const RESTRICTION_RULES: RestrictionRule[] = [
     description: '車検と12ヵ月点検の制限',
     enabled: true,
     condition: (events, newEvent) => {
+      // 管理者は制限を無視
+      if (newEvent.userType === 'admin') return false;
+
       const selectedDate = new Date(newEvent.selectedDate);
       
       // 同じ日の車検予約をカウント

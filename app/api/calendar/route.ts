@@ -57,7 +57,7 @@ export async function POST(request: Request) {
 
     // イベントの作成
     const event = {
-      summary: `【未確認】${isAdminBooking ? data.customerName : (data.companyName || data.fullName)} - ${serviceType}${data.visitType === '引取' ? ' (引取)' : ''}`,
+      summary: `【未確認】${data.visitType === '引取' ? '(引取) ' : ''}${isAdminBooking ? data.customerName : (data.companyName || data.fullName)} - ${serviceType}`,
       description: isAdminBooking 
         ? `
           【お客様情報】
